@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#16321c" />
+    <meta name="description" content="Woodlands Designer Boards — custom kitchen units, built-in cupboards and TV stands, built with PG Bison board across Soweto, Roodepoort and Randfontein." />
+    <title>@ViewData["Title"] &middot; Woodlands Designer Boards</title>
+
+    <link rel="icon" href="~/Images/brand/woodlands-mark.png" type="image/png" />
+
+    <partial name="_ThemeHead" />
+    @await RenderSectionAsync("Head", required: false)
+</head>
+<body class="min-h-screen flex flex-col bg-white">
+
+    <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:z-[60] focus:m-3 focus:rounded focus:bg-brand-900 focus:px-4 focus:py-2 focus:text-white">Skip to content</a>
+
+    <div class="sticky top-0 z-50">
+        <!-- Utility bar -->
+        <div class="bg-brand-900 text-white/70 text-xs hidden sm:block">
+            <div class="max-w-content mx-auto px-4 sm:px-6 lg:px-8 h-9 flex items-center justify-between">
+                <div class="flex items-center gap-6">
+                    <span class="inline-flex items-center gap-1.5">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                        Soweto &middot; Roodepoort &middot; Randfontein
+                    </span>
+                    <span class="hidden lg:inline-flex items-center gap-1.5">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+                        Mon&ndash;Fri 07:30&ndash;17:00 &middot; Sat 08:00&ndash;13:00
+                    </span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="text-tan">Authorised PG Bison partner</span>
+                    <span class="text-white/20">|</span>
+                    <a href="tel:+2711XXXXXXX" class="hover:text-white transition-colors">011 XXX XXXX</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Primary navigation -->
+        <nav class="bg-white/95 backdrop-blur border-b border-line">
+            <div class="max-w-content mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-[68px] lg:h-[84px] gap-6">
+                    <a asp-controller="Home" asp-action="Index" class="shrink-0 flex items-center" aria-label="Woodlands Designer Boards — home">
+                        <img src="~/Images/brand/woodlands-logo.png" alt="Woodlands Designer Boards" class="h-11 lg:h-14 w-auto" />
+                    </a>
+
+                    <div class="hidden lg:flex items-center gap-1" role="menubar">
+                        <div class="relative group">
+                            <a asp-controller="Products" asp-action="Index"
+                               class="flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium text-ink/75 hover:text-brand-700 transition-colors">
+                                Products
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="transition-transform group-hover:rotate-180" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+                            </a>
+                            <div class="absolute top-full left-0 pt-1 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200">
+                                <div class="bg-white/95 backdrop-blur border border-line rounded-lg py-2 min-w-56 overflow-hidden shadow-lg">
+                                    <a asp-controller="Products" asp-action="Index" asp-route-category="kitchen-units" class="block px-4 py-2.5 text-sm text-ink/80 hover:bg-surface hover:text-brand-700">Kitchen Units</a>
+                                    <a asp-controller="Products" asp-action="Index" asp-route-category="tv-stands" class="block px-4 py-2.5 text-sm text-ink/80 hover:bg-surface hover:text-brand-700">TV Stands</a>
+                                    <a asp-controller="Products" asp-action="Index" asp-route-category="built-in-cupboards" class="block px-4 py-2.5 text-sm text-ink/80 hover:bg-surface hover:text-brand-700">Built-In Cupboards</a>
+                                    <a asp-controller="Products" asp-action="Index" asp-route-category="cutting-edging" class="block px-4 py-2.5 text-sm text-ink/80 hover:bg-surface hover:text-brand-700">Cutting &amp; Edging</a>
+                                </div>
+                            </div>
+                        </div>
+                        <a asp-controller="Home" asp-action="About" class="px-3.5 py-2.5 text-sm font-medium text-ink/75 hover:text-brand-700 transition-colors">About</a>
+                        <a asp-controller="Testimonials" asp-action="Index" class="px-3.5 py-2.5 text-sm font-medium text-ink/75 hover:text-brand-700 transition-colors">Testimonials</a>
+                        <a asp-controller="FAQs" asp-action="Index" class="px-3.5 py-2.5 text-sm font-medium text-ink/75 hover:text-brand-700 transition-colors">FAQs</a>
+                        <a asp-controller="Contact" asp-action="Index" class="px-3.5 py-2.5 text-sm font-medium text-ink/75 hover:text-brand-700 transition-colors">Contact</a>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <a asp-controller="Dashboard" asp-action="Index" class="hidden lg:inline-flex btn btn-outline btn-sm">Dashboard</a>
+                            <form asp-controller="Account" asp-action="Logout" method="post" class="hidden lg:block">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="px-3 py-2 text-sm font-medium text-muted hover:text-ink">Sign out</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <a asp-controller="Account" asp-action="Login" class="hidden lg:inline-flex px-3 py-2 text-sm font-medium text-muted hover:text-ink transition-colors">Sign in</a>
+                        }
+                        <a asp-controller="Contact" asp-action="Index" class="hidden sm:inline-flex btn btn-primary btn-sm">Request a quote</a>
+
+                        <button id="nav-toggle" class="lg:hidden p-2 -mr-2 text-ink" aria-label="Toggle menu" aria-expanded="false" aria-controls="mobile-menu">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 12h18M3 6h18M3 18h18" /></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="mobile-menu" class="lg:hidden hidden border-t border-line bg-white px-4 py-3 space-y-0.5">
+                <a asp-controller="Products" asp-action="Index" class="block px-3 py-2.5 rounded text-sm font-medium text-ink/80 hover:bg-surface">Products</a>
+                <div class="ml-3 border-l border-line pl-3 space-y-0.5">
+                    <a asp-controller="Products" asp-action="Index" asp-route-category="kitchen-units" class="block px-3 py-2 rounded text-xs text-muted hover:bg-surface">Kitchen Units</a>
+                    <a asp-controller="Products" asp-action="Index" asp-route-category="tv-stands" class="block px-3 py-2 rounded text-xs text-muted hover:bg-surface">TV Stands</a>
+                    <a asp-controller="Products" asp-action="Index" asp-route-category="built-in-cupboards" class="block px-3 py-2 rounded text-xs text-muted hover:bg-surface">Built-In Cupboards</a>
+                    <a asp-controller="Products" asp-action="Index" asp-route-category="cutting-edging" class="block px-3 py-2 rounded text-xs text-muted hover:bg-surface">Cutting &amp; Edging</a>
+                </div>
+                <a asp-controller="Home" asp-action="About" class="block px-3 py-2.5 rounded text-sm font-medium text-ink/80 hover:bg-surface">About</a>
+                <a asp-controller="Testimonials" asp-action="Index" class="block px-3 py-2.5 rounded text-sm font-medium text-ink/80 hover:bg-surface">Testimonials</a>
+                <a asp-controller="FAQs" asp-action="Index" class="block px-3 py-2.5 rounded text-sm font-medium text-ink/80 hover:bg-surface">FAQs</a>
+                <a asp-controller="Contact" asp-action="Index" class="block px-3 py-2.5 rounded text-sm font-medium text-ink/80 hover:bg-surface">Contact</a>
+                <a asp-controller="Contact" asp-action="Index" class="btn btn-primary w-full mt-2">Request a quote</a>
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <a asp-controller="Dashboard" asp-action="Index" class="block px-3 py-2.5 rounded text-sm font-medium text-ink/80 hover:bg-surface">Dashboard</a>
+                    <form asp-controller="Account" asp-action="Logout" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="w-full text-left px-3 py-2.5 rounded text-sm font-medium text-muted hover:bg-surface">Sign out</button>
+                    </form>
+                }
+                else
+                {
+                    <a asp-controller="Account" asp-action="Login" class="block px-3 py-2.5 rounded text-sm font-medium text-muted hover:bg-surface">Sign in</a>
+                }
+            </div>
+        </nav>
+
+        @* Build status — intentional, so reviewers can tell placeholder data from finished work. *@
+        <div class="wip-strip">
+            <div class="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span class="wip-dot inline-block" aria-hidden="true"></span>
+                <span class="font-semibold text-ink/80">Milestone&nbsp;2 build</span>
+                <span class="hidden sm:inline text-line">|</span>
+                <span>UI pass applied to the public pages. Contact details, pricing and imagery are still placeholder data pending client sign-off.</span>
+            </div>
+        </div>
+    </div>
+    <main id="main" class="flex-1">
+        @RenderBody()
+    </main>
+
+    <footer class="bg-brand-900 text-white/70 mt-auto">
+        <div class="border-b border-white/10">
+            <div class="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-5">
+                <div>
+                    <p class="font-display text-xl text-white leading-snug">Planning a kitchen, cupboard or TV unit?</p>
+                    <p class="text-sm text-white/55 mt-1">Send us your measurements and we'll quote within two working days.</p>
+                </div>
+                <a asp-controller="Contact" asp-action="Index" class="btn btn-primary whitespace-nowrap">Request a quote</a>
+            </div>
+        </div>
+
+        <div class="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-10">
+                <div>
+                    <div class="font-display text-xl text-white leading-tight">Woodlands</div>
+                    <div class="text-[0.7rem] uppercase tracking-[0.22em] text-tan mb-4">Designer Boards</div>
+                    <p class="text-sm leading-relaxed text-white/55">Custom-built units cut and edged from PG Bison board, fitted across Gauteng since 2010.</p>
+                </div>
+                <div>
+                    <h4 class="text-white text-xs font-semibold uppercase tracking-[0.14em] mb-4 font-sans">Products</h4>
+                    <ul class="space-y-2.5 text-sm">
+                        <li><a asp-controller="Products" asp-action="Index" asp-route-category="kitchen-units" class="hover:text-tan transition-colors">Kitchen Units</a></li>
+                        <li><a asp-controller="Products" asp-action="Index" asp-route-category="tv-stands" class="hover:text-tan transition-colors">TV Stands</a></li>
+                        <li><a asp-controller="Products" asp-action="Index" asp-route-category="built-in-cupboards" class="hover:text-tan transition-colors">Built-In Cupboards</a></li>
+                        <li><a asp-controller="Products" asp-action="Index" asp-route-category="cutting-edging" class="hover:text-tan transition-colors">Cutting &amp; Edging</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white text-xs font-semibold uppercase tracking-[0.14em] mb-4 font-sans">Company</h4>
+                    <ul class="space-y-2.5 text-sm">
+                        <li><a asp-controller="Home" asp-action="About" class="hover:text-tan transition-colors">About Us</a></li>
+                        <li><a asp-controller="Testimonials" asp-action="Index" class="hover:text-tan transition-colors">Testimonials</a></li>
+                        <li><a asp-controller="FAQs" asp-action="Index" class="hover:text-tan transition-colors">FAQs</a></li>
+                        <li><a asp-controller="Contact" asp-action="Index" class="hover:text-tan transition-colors">Contact</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white text-xs font-semibold uppercase tracking-[0.14em] mb-4 font-sans">Branches</h4>
+                    <ul class="space-y-3.5 text-sm">
+                        <li><span class="block text-white/85">Soweto</span><span class="text-xs text-white/45">011 XXX XXXX</span></li>
+                        <li><span class="block text-white/85">Roodepoort</span><span class="text-xs text-white/45">011 XXX XXXX</span></li>
+                        <li><span class="block text-white/85">Randfontein</span><span class="text-xs text-white/45">011 XXX XXXX</span></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-white/10 pt-6 flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-white/35">
+                <p>&copy; @DateTime.Now.Year Woodlands Designer Boards. All rights reserved.</p>
+                <p>Authorised PG Bison Partner &middot; Student project build, INSY7315</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

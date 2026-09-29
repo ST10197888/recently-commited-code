@@ -1,0 +1,138 @@
+@model Woodlands_Prototype_Insy7315.Models.LoginViewModel
+
+@{
+    ViewData["Title"] = "Login";
+}
+
+<div class="max-w-md mx-auto px-4 py-16">
+    <div class="bg-white border border-gray-100 rounded-xl shadow-sm p-8">
+
+        @if (TempData["RegistrationMessage"] != null)
+        {
+            <div class="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                @TempData["RegistrationMessage"]
+            </div>
+        }
+
+        <div class="mb-6">
+            <h1 class="text-2xl font-bold text-brand-700 mb-2" style="font-family:var(--font-display);">Welcome Back</h1>
+            <p class="text-sm text-gray-500">Sign in to your Woodlands account.</p>
+        </div>
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div asp-validation-summary="ModelOnly" class="text-sm text-red-600 mb-4"></div>
+        }
+
+        <form asp-action="Login" asp-controller="Account" method="post" class="space-y-4">
+            @Html.AntiForgeryToken()
+
+            <input type="hidden" asp-for="ReturnUrl" />
+
+            <div>
+                <label asp-for="Email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input asp-for="Email"
+                       class="field"
+                       autocomplete="email"
+                       placeholder="Enter your email" />
+                <span asp-validation-for="Email" class="text-xs text-red-600"></span>
+            </div>
+
+            <div>
+                <label asp-for="Password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <input asp-for="Password"
+                       class="field"
+                       autocomplete="current-password"
+                       placeholder="Enter your password" />
+                <span asp-validation-for="Password" class="text-xs text-red-600"></span>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <input asp-for="RememberMe"
+                       class="h-4 w-4 rounded border-gray-300 text-brand-700 focus:ring-brand-700" />
+                <label asp-for="RememberMe" class="text-sm text-gray-600">Remember me</label>
+            </div>
+
+            <button type="submit"
+                    class="btn btn-secondary w-full">
+                Login
+            </button>
+        </form>
+
+        <div class="mt-8">
+            <div class="relative mb-4">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-200"></div>
+                </div>
+                <div class="relative flex justify-center">
+                    <span class="bg-white px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Quick Login</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-2">
+                <button type="button"
+                        class="quick-login w-full text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg py-2.5 transition-colors"
+                        data-email="admin@woodlandsdb.co.za"
+                        data-password="admin123">
+                    Admin
+                </button>
+
+                <button type="button"
+                        class="quick-login w-full text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg py-2.5 transition-colors"
+                        data-email="soweto@woodlandsdb.co.za"
+                        data-password="manager123">
+                    Manager &ndash; Soweto
+                </button>
+
+                <button type="button"
+                        class="quick-login w-full text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg py-2.5 transition-colors"
+                        data-email="roodepoort@woodlandsdb.co.za"
+                        data-password="manager123">
+                    Manager &ndash; Roodepoort
+                </button>
+
+                <button type="button"
+                        class="quick-login w-full text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg py-2.5 transition-colors"
+                        data-email="randfontein@woodlandsdb.co.za"
+                        data-password="manager123">
+                    Manager &ndash; Randfontein
+                </button>
+
+                <button type="button"
+                        class="quick-login w-full text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg py-2.5 transition-colors"
+                        data-email="customer@example.com"
+                        data-password="customer123">
+                    Customer
+                </button>
+            </div>
+        </div>
+
+        <div class="text-center mt-6">
+            <p class="text-sm text-gray-500">
+                Don't have an account?
+                <a asp-action="Register" asp-controller="Account" class="text-brand-700 font-medium hover:underline">Register</a>
+            </p>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const quickLoginButtons = document.querySelectorAll(".quick-login");
+            const emailInput = document.getElementById("Email");
+            const passwordInput = document.getElementById("Password");
+
+            quickLoginButtons.forEach(function (button) {
+                button.addEventListener("click", function () {
+                    emailInput.value = button.dataset.email;
+                    passwordInput.value = button.dataset.password;
+                    emailInput.focus();
+                });
+            });
+        });
+    </script>
+}
