@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Text;
 using System.Text.Json;
 using Woodlands_Prototype_Insy7315.Models;
+using Woodlands_Prototype_Insy7315.Services;
 
 namespace Woodlands_Prototype_Insy7315.Controllers
 {
@@ -27,7 +28,6 @@ namespace Woodlands_Prototype_Insy7315.Controllers
             {
                 var client = _http.CreateClient("NodeApi");
 
-                // Load services
                 var servicesRes = await client.GetAsync("api/services");
                 if (servicesRes.IsSuccessStatusCode)
                 {
@@ -36,7 +36,6 @@ namespace Woodlands_Prototype_Insy7315.Controllers
                     services = services.Where(s => s.IsActive).ToList();
                 }
 
-                // Load requested product if ID was provided
                 if (!string.IsNullOrWhiteSpace(productId))
                 {
                     var prodRes = await client.GetAsync($"api/products/{productId}");
@@ -74,7 +73,7 @@ namespace Woodlands_Prototype_Insy7315.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Index(ContactRequest request)
         {
-            // Block admin/manager users from submitting quotes
+            // Keep the branch-specific role names as they are in your app
             if (User.IsInRole("Admin") ||
                 User.IsInRole("Manager (Soweto)") ||
                 User.IsInRole("Manager (Roodepoort)") ||
@@ -83,7 +82,6 @@ namespace Woodlands_Prototype_Insy7315.Controllers
                 return Forbid();
             }
 
-            // Reload services (in case of validation failure re-render)
             var services = new List<Service>();
             try
             {
@@ -124,13 +122,13 @@ namespace Woodlands_Prototype_Insy7315.Controllers
                 var payload = new
                 {
                     quote_code = quoteCode,
-                    first_name = request.FirstName,
-                    last_name = request.LastName,
+                    first_name = InputSanitizer.StripHtml(request.FirstName),
+                    last_name = InputSanitizer.StripHtml(request.LastName),
                     email = request.Email,
                     phone = request.Phone,
                     branch = request.Branch,
                     service = request.Service,
-                    message = request.Message,
+                    message = InputSanitizer.StripHtml(request.Message),
                     product_id = request.ProductId ?? "",
                     status = "pending"
                 };

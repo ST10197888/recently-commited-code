@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Text;
 using System.Text.Json;
 using Woodlands_Prototype_Insy7315.Models;
+using Woodlands_Prototype_Insy7315.Services;
 
 namespace Woodlands_Prototype_Insy7315.Controllers
 {
@@ -75,9 +76,13 @@ namespace Woodlands_Prototype_Insy7315.Controllers
 
             try
             {
+                // Sanitize input
+                var sanitizedFullName = InputSanitizer.StripHtml(model.FullName) ?? "";
+                var sanitizedBranch = InputSanitizer.StripHtml(model.Branch);
+
                 var registerPayload = new
                 {
-                    fullName = model.FullName,
+                    fullName = sanitizedFullName,
                     email = model.Email,
                     password = model.Password,
                     phone = model.PhoneNumber ?? ""
@@ -109,7 +114,7 @@ namespace Woodlands_Prototype_Insy7315.Controllers
                             var updatePayload = new
                             {
                                 role = model.Role,
-                                branch = model.Branch,
+                                branch = sanitizedBranch,
                                 active = model.Active
                             };
                             var upContent = new StringContent(JsonSerializer.Serialize(updatePayload), Encoding.UTF8, "application/json");
@@ -176,13 +181,17 @@ namespace Woodlands_Prototype_Insy7315.Controllers
 
             try
             {
+                // Sanitize input
+                var sanitizedFullName = InputSanitizer.StripHtml(model.FullName) ?? "";
+                var sanitizedBranch = InputSanitizer.StripHtml(model.Branch);
+
                 var payload = new
                 {
-                    full_name = model.FullName,
+                    full_name = sanitizedFullName,
                     email = model.Email,
                     phone = model.PhoneNumber ?? "",
                     role = model.Role,
-                    branch = model.Branch,
+                    branch = sanitizedBranch,
                     active = model.Active
                 };
 
@@ -272,12 +281,12 @@ namespace Woodlands_Prototype_Insy7315.Controllers
             {
                 var payload = new
                 {
-                    name = model.Name,
-                    role = model.Role ?? "",
-                    location = model.Location ?? "",
+                    name = InputSanitizer.StripHtml(model.Name),
+                    role = InputSanitizer.StripHtml(model.Role ?? ""),
+                    location = InputSanitizer.StripHtml(model.Location ?? ""),
                     rating = model.Rating,
-                    review = model.Review,
-                    project = model.Project ?? ""
+                    review = InputSanitizer.StripHtml(model.Review),
+                    project = InputSanitizer.StripHtml(model.Project ?? "")
                 };
 
                 var client = _http.CreateClient("NodeApi");
@@ -345,12 +354,12 @@ namespace Woodlands_Prototype_Insy7315.Controllers
             {
                 var payload = new
                 {
-                    name = model.Name,
-                    role = model.Role ?? "",
-                    location = model.Location ?? "",
+                    name = InputSanitizer.StripHtml(model.Name),
+                    role = InputSanitizer.StripHtml(model.Role ?? ""),
+                    location = InputSanitizer.StripHtml(model.Location ?? ""),
                     rating = model.Rating,
-                    review = model.Review,
-                    project = model.Project ?? ""
+                    review = InputSanitizer.StripHtml(model.Review),
+                    project = InputSanitizer.StripHtml(model.Project ?? "")
                 };
 
                 var client = _http.CreateClient("NodeApi");
@@ -445,9 +454,9 @@ namespace Woodlands_Prototype_Insy7315.Controllers
             {
                 var payload = new
                 {
-                    category = model.Category,
-                    question = model.Question,
-                    answer = model.Answer
+                    category = InputSanitizer.StripHtml(model.Category),
+                    question = InputSanitizer.StripHtml(model.Question),
+                    answer = InputSanitizer.StripHtml(model.Answer)
                 };
 
                 var client = _http.CreateClient("NodeApi");
@@ -516,9 +525,9 @@ namespace Woodlands_Prototype_Insy7315.Controllers
             {
                 var payload = new
                 {
-                    category = model.Category,
-                    question = model.Question,
-                    answer = model.Answer
+                    category = InputSanitizer.StripHtml(model.Category),
+                    question = InputSanitizer.StripHtml(model.Question),
+                    answer = InputSanitizer.StripHtml(model.Answer)
                 };
 
                 var client = _http.CreateClient("NodeApi");
@@ -631,4 +640,4 @@ namespace Woodlands_Prototype_Insy7315.Controllers
         public string? Branch { get; set; }
         public bool Active { get; set; }
     }
-}   
+}

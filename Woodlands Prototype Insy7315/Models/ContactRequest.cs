@@ -5,10 +5,12 @@ namespace Woodlands_Prototype_Insy7315.Models
     public class ContactRequest
     {
         [Required(ErrorMessage = "Required")]
+        [StringLength(100)]
         [Display(Name = "First Name")]
         public string FirstName { get; set; } = "";
 
         [Required(ErrorMessage = "Required")]
+        [StringLength(100)]
         [Display(Name = "Last Name")]
         public string LastName { get; set; } = "";
 
@@ -29,6 +31,7 @@ namespace Woodlands_Prototype_Insy7315.Models
         public string Service { get; set; } = "";
 
         [Required(ErrorMessage = "Describe your project")]
+        [StringLength(2000, ErrorMessage = "Please keep the description under 2000 characters.")]
         [Display(Name = "Project Description")]
         public string Message { get; set; } = "";
 

@@ -10,10 +10,27 @@ app.use(cors()); // Allows your C# app to make requests
 app.use(express.json()); // Parses incoming JSON data
 
 // Initialize Supabase
+const clientOptions = {
+    auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+    }
+};
+
 const supabase = createClient(
     process.env.SUPABASE_URL,
-    process.env.SUPABASE_KEY
+    process.env.SUPABASE_KEY,
+    clientOptions
 );
+
+function createAuthClient() {
+    return createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_KEY,
+        clientOptions
+    );
+}
 
 
 // ENDPOINTS
@@ -23,7 +40,7 @@ const supabase = createClient(
 app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     try {
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+        const { data: authData, error: authError } = await createAuthClient().auth.signInWithPassword({ email, password });
         if (authError || !authData.user) {
             return res.status(401).json({ error: "Invalid email or password." });
         }
