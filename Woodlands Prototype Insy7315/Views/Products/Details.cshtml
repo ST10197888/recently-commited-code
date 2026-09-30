@@ -33,7 +33,7 @@
                     <div class="flex gap-2">
                         @for (int i = 0; i < p.Gallery.Count; i++)
                         {
-                            <button data-gallery-thumb data-src="@p.Gallery[i]" class="w-20 h-16 rounded-lg overflow-hidden border-2 transition-all @(i == 0 ? "border-accent" : "border-transparent opacity-60 hover:opacity-100")">
+                            <button data-gallery-thumb data-src="@p.Gallery[i]" aria-label="Show product image @(i + 1) of @p.Title" class="w-20 h-16 rounded-lg overflow-hidden border-2 transition-all @(i == 0 ? "border-accent" : "border-transparent opacity-60 hover:opacity-100")">
                                 <img src="@p.Gallery[i]" alt="" class="w-full h-full object-cover" />
                             </button>
                         }

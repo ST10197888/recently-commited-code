@@ -35,6 +35,13 @@ namespace Woodlands_Prototype_Insy7315.Models
         [Display(Name = "Project Description")]
         public string Message { get; set; } = "";
 
+        [Required]
+        [Range(
+        typeof(bool),
+        "true",
+        "true",
+        ErrorMessage = "Please read the privacy notice before submitting your quote request.")]
+        public bool PrivacyAcknowledged { get; set; }
         // Carries the requested product through the form so it can be displayed in the summary card and re-shown if validation fails.
         public string? ProductId { get; set; }
     }

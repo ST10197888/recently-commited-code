@@ -96,8 +96,8 @@
                             <span asp-validation-for="Email" class="text-[#b3261e] text-xs mt-1.5 block"></span>
                         </div>
                         <div>
-                            <label asp-for="Phone" class="field-label">Phone Number <span class="text-[#b3261e]" aria-hidden="true">*</span></label>
-                            <input asp-for="Phone" placeholder="071 000 0000" class="field" />
+                            <label asp-for="Phone" class="field-label">Phone Number (optional)</label>
+                            <input asp-for="Phone" type="tel" autocomplete="tel" placeholder="071 000 0000" class="field" />
                             <span asp-validation-for="Phone" class="text-[#b3261e] text-xs mt-1.5 block"></span>
                         </div>
                         <div>
@@ -133,7 +133,14 @@
                     <button type="submit" class="flex items-center justify-center gap-2 w-full py-3.5 bg-accent hover:bg-accent-600 text-white font-bold rounded-lg transition-all hover:shadow-lg">
                         &#9993; Submit Quote Request
                     </button>
-                    <p class="text-center text-muted text-xs mt-3">We respond within 1 business day. No spam, ever.</p>
+                    <p class="text-center text-muted text-xs mt-3">We use these details to respond to your request. We do not sign you up for marketing.</p>
+                    <div class="mb-5">
+                        <label class="flex items-start gap-2 text-sm text-ink">
+                            <input asp-for="PrivacyAcknowledged" class="mt-1 accent-brand-700" />
+                            <span>I have read the <a asp-controller="Home" asp-action="Privacy" class="underline text-brand-700">privacy notice</a> and understand my details will be used to respond to this quote request.</span>
+                        </label>
+                        <span asp-validation-for="PrivacyAcknowledged" class="text-[#b3261e] text-xs mt-1.5 block"></span>
+                    </div>
                 </form>
             </div>
 

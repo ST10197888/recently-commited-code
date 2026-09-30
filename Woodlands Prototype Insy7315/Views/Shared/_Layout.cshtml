@@ -46,14 +46,15 @@
                         <img src="~/Images/brand/woodlands-logo.png" alt="Woodlands Designer Boards" class="h-11 lg:h-14 w-auto" />
                     </a>
 
-                    <div class="hidden lg:flex items-center gap-1" role="menubar">
+                    @* <div class="hidden lg:flex items-center gap-1" role="menubar"> *@
                         <div class="relative group">
                             <a asp-controller="Products" asp-action="Index"
                                class="flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium text-ink/75 hover:text-brand-700 transition-colors">
                                 Products
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="transition-transform group-hover:rotate-180" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
                             </a>
-                            <div class="absolute top-full left-0 pt-1 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200">
+                        <div class="absolute top-full left-0 pt-1 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 transition-all duration-200">
+                            @* <div class="absolute top-full left-0 pt-1 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200"> *@
                                 <div class="bg-white/95 backdrop-blur border border-line rounded-lg py-2 min-w-56 overflow-hidden shadow-lg">
                                     <a asp-controller="Products" asp-action="Index" asp-route-category="kitchen-units" class="block px-4 py-2.5 text-sm text-ink/80 hover:bg-surface hover:text-brand-700">Kitchen Units</a>
                                     <a asp-controller="Products" asp-action="Index" asp-route-category="tv-stands" class="block px-4 py-2.5 text-sm text-ink/80 hover:bg-surface hover:text-brand-700">TV Stands</a>
@@ -63,10 +64,10 @@
                             </div>
                         </div>
                         <a asp-controller="Home" asp-action="About" class="px-3.5 py-2.5 text-sm font-medium text-ink/75 hover:text-brand-700 transition-colors">About</a>
-                        <a asp-controller="Testimonials" asp-action="Index" class="px-3.5 py-2.5 text-sm font-medium text-ink/75 hover:text-brand-700 transition-colors">Testimonials</a>
+                        @* <a asp-controller="Testimonials" asp-action="Index" class="px-3.5 py-2.5 text-sm font-medium text-ink/75 hover:text-brand-700 transition-colors">Testimonials</a> *@
                         <a asp-controller="FAQs" asp-action="Index" class="px-3.5 py-2.5 text-sm font-medium text-ink/75 hover:text-brand-700 transition-colors">FAQs</a>
                         <a asp-controller="Contact" asp-action="Index" class="px-3.5 py-2.5 text-sm font-medium text-ink/75 hover:text-brand-700 transition-colors">Contact</a>
-                    </div>
+                   @*  </div> *@
 
                     <div class="flex items-center gap-2">
                         @if (User.Identity?.IsAuthenticated == true)
@@ -144,7 +145,7 @@
         </div>
 
         <div class="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-10">
+            <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-10 mb-10">
                 <div>
                     <div class="font-display text-xl text-white leading-tight">Woodlands</div>
                     <div class="text-[0.7rem] uppercase tracking-[0.22em] text-tan mb-4">Designer Boards</div>
@@ -166,6 +167,15 @@
                         <li><a asp-controller="Testimonials" asp-action="Index" class="hover:text-tan transition-colors">Testimonials</a></li>
                         <li><a asp-controller="FAQs" asp-action="Index" class="hover:text-tan transition-colors">FAQs</a></li>
                         <li><a asp-controller="Contact" asp-action="Index" class="hover:text-tan transition-colors">Contact</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white text-xs font-semibold uppercase tracking-[0.14em] mb-4 font-sans">Policies</h4>
+                    <ul class="space-y-2.5 text-sm">
+                        <li><a asp-controller="Home" asp-action="Privacy" class="hover:text-tan underline">Privacy</a></li>
+                        <li><a asp-controller="Home" asp-action="Terms" class="hover:text-tan underline">Terms</a></li>
+                        <li><a asp-controller="Home" asp-action="Refunds" class="hover:text-tan underline">Refunds</a></li>
+                        <li><a asp-controller="Home" asp-action="Cookies" class="hover:text-tan underline">Cookies</a></li>
                     </ul>
                 </div>
                 <div>

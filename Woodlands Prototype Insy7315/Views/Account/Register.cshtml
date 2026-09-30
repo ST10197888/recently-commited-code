@@ -43,6 +43,14 @@
                 <span asp-validation-for="ConfirmPassword" class="text-xs text-red-600"></span>
             </div>
 
+            <div>
+                <label class="flex items-start gap-2 text-sm text-gray-700">
+                    <input asp-for="PrivacyAcknowledged" class="mt-1 accent-brand-700" />
+                    <span>I have read the <a asp-controller="Home" asp-action="Privacy" class="underline text-brand-700">privacy notice</a> and understand my details are used to provide this account.</span>
+                </label>
+                <span asp-validation-for="PrivacyAcknowledged" class="text-xs text-red-600"></span>
+            </div>
+
             <button type="submit" class="btn btn-secondary w-full">Create Customer Account</button>
         </form>
     </div>

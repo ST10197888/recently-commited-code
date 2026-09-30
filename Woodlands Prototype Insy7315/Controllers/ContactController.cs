@@ -73,13 +73,21 @@ namespace Woodlands_Prototype_Insy7315.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Index(ContactRequest request)
         {
-            // Keep the branch-specific role names as they are in your app
             if (User.IsInRole("Admin") ||
                 User.IsInRole("Manager (Soweto)") ||
                 User.IsInRole("Manager (Roodepoort)") ||
                 User.IsInRole("Manager (Randfontein)"))
             {
                 return Forbid();
+            }
+
+            if (!request.PrivacyAcknowledged)
+            {
+                ModelState.AddModelError(
+                    nameof(ContactRequest.PrivacyAcknowledged),
+                    "Please read the privacy notice before submitting this form.");
+
+                return View(request);
             }
 
             var services = new List<Service>();
@@ -114,6 +122,12 @@ namespace Woodlands_Prototype_Insy7315.Controllers
             {
                 return View(request);
             }
+            if (!request.PrivacyAcknowledged)
+            {
+                ModelState.AddModelError(nameof(ContactRequest.PrivacyAcknowledged), "Please read the privacy notice before submitting this form.");
+                return View(request);
+            }
+            
 
             try
             {

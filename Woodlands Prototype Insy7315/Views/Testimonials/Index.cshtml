@@ -12,16 +12,15 @@
                 <span class="text-white/70">Testimonials</span>
             </div>
             <h1 class="text-white mb-2 display-1">What Our Clients Say</h1>
-            <p class="text-white/55 text-sm">Trusted by homeowners, designers, and contractors across Soweto, Roodepoort, and Randfontein.</p>
+            <p class="text-white/80 text-sm">Client feedback will appear here after it has been verified and approved for publication.</p>
         </div>
     </div>
 
     <div class="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-14">
-        <div class="grid grid-cols-3 gap-4 mb-12">
-            <div class="bg-white rounded-xl p-5 text-center border border-line"><div class="text-accent font-bold">4.9/5</div><div class="text-muted text-xs mt-1">Average Rating</div></div>
-            <div class="bg-white rounded-xl p-5 text-center border border-line"><div class="text-accent font-bold">500+</div><div class="text-muted text-xs mt-1">Happy Clients</div></div>
-            <div class="bg-white rounded-xl p-5 text-center border border-line"><div class="text-accent font-bold">100%</div><div class="text-muted text-xs mt-1">Would Recommend</div></div>
-        </div>
+        @if (Model.Count == 0)
+        {
+            <p class="mb-12 rounded-lg border border-line bg-surface p-6 text-ink">There are no verified client testimonials published yet.</p>
+        }
 
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-12">
             @foreach (var t in Model)
@@ -46,8 +45,8 @@
         </div>
 
         <div class="bg-brand-700 rounded-xl p-8 text-center">
-            <h3 class="text-white mb-2" style="font-size:1.5rem;font-weight:700;">Ready to Join Our Satisfied Clients?</h3>
-            <p class="text-white/55 text-sm mb-5">Get a free quote today and let us transform your space.</p>
+            <h3 class="text-white mb-2" style="font-size:1.5rem;font-weight:700;">Planning a project?</h3>
+            <p class="text-white/80 text-sm mb-5">Send a quote request to get started.</p>
             <a asp-controller="Contact" asp-action="Index" class="btn btn-primary">Request a Free Quote &rarr;</a>
         </div>
     </div>

@@ -109,7 +109,12 @@ app.post('/api/auth/register', async (req, res) => {
 // APP USERS (Admin management only)
 
 app.get('/api/app-users', async (req, res) => {
-    const { data, error } = await supabase.from('app_users').select('*').order('full_name');
+    let query = supabase.from('app_users').select('*').order('full_name');
+    if (typeof req.query.email === 'string' && req.query.email.trim()) {
+        const escaped = req.query.email.trim().replace(/[\\%_]/g, '\\$&');
+        query = query.ilike('email', escaped);
+    }
+    const { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
 });
@@ -258,6 +263,12 @@ app.post('/api/testimonials', async (req, res) => {
     res.status(201).json(data);
 });
 
+app.put('/api/testimonials/:id', async (req, res) => {
+    const { data, error } = await supabase.from('testimonials').update(req.body).eq('id', req.params.id).select();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+});
+
 app.delete('/api/testimonials/:id', async (req, res) => {
     const { data, error } = await supabase.from('testimonials').delete().eq('id', req.params.id).select();
     if (error) return res.status(500).json({ error: error.message });
@@ -277,6 +288,12 @@ app.post('/api/faqs', async (req, res) => {
     const { data, error } = await supabase.from('faqs').insert([req.body]).select();
     if (error) return res.status(500).json({ error: error.message });
     res.status(201).json(data);
+});
+
+app.put('/api/faqs/:id', async (req, res) => {
+    const { data, error } = await supabase.from('faqs').update(req.body).eq('id', req.params.id).select();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
 });
 
 app.delete('/api/faqs/:id', async (req, res) => {
