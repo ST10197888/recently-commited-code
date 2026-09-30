@@ -61,14 +61,14 @@ namespace Woodlands_Prototype_Insy7315.Controllers
                     .Take(4)
                     .ToList();
 
-                //// Fetch testimonials
-                //var testimonialsResponse = await client.GetAsync("api/testimonials");
-                //if (testimonialsResponse.IsSuccessStatusCode)
-                //{
-                //    var json = await testimonialsResponse.Content.ReadAsStringAsync();
-                //    var testimonials = JsonSerializer.Deserialize<List<Testimonial>>(json, _jsonOptions) ?? new();
-                //    vm.TestimonialsSnippet = testimonials.Take(3).ToList();
-                //}
+                // Fetch testimonials
+                var testimonialsResponse = await client.GetAsync("api/testimonials");
+                if (testimonialsResponse.IsSuccessStatusCode)
+                {
+                    var json = await testimonialsResponse.Content.ReadAsStringAsync();
+                    var testimonials = JsonSerializer.Deserialize<List<Testimonial>>(json, _jsonOptions) ?? new();
+                    vm.TestimonialsSnippet = testimonials.Take(3).ToList();
+                }
             }
             catch (Exception ex)
             {

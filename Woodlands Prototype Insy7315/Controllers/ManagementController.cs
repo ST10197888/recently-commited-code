@@ -386,6 +386,51 @@ namespace Woodlands_Prototype_Insy7315.Controllers
             return RedirectToAction(nameof(Services));
         }
 
+
+        // in ManagementController.cs
+
+        public async Task<IActionResult> ServiceRequests(string? status = "all")
+        {
+            var requests = new List<QuoteRequest>();
+            try
+            {
+                var client = _http.CreateClient("NodeApi");
+                var res = await client.GetAsync("api/quote-requests");
+                if (res.IsSuccessStatusCode)
+                {
+                    var json = await res.Content.ReadAsStringAsync();
+                    requests = JsonSerializer.Deserialize<List<QuoteRequest>>(json, _json) ?? new();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading service requests");
+            }
+
+            // Managers only see their branch
+            if (!User.IsInRole("Admin"))
+            {
+                var branch = User.FindFirst("Branch")?.Value;
+                requests = requests
+                    .Where(r => string.Equals(r.Branch, branch, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
+            requests = requests.OrderByDescending(r => r.CreatedAt).ToList();
+
+            var filtered = status switch
+            {
+                "pending" => requests.Where(r => r.Status == "Pending").ToList(),
+                "in-progress" => requests.Where(r => r.Status == "In Progress").ToList(),
+                "completed" => requests.Where(r => r.Status == "Completed").ToList(),
+                "cancelled" => requests.Where(r => r.Status == "Cancelled").ToList(),
+                _ => requests
+            };
+
+            ViewData["Filter"] = status ?? "all";
+            return View(filtered);
+        }
+
         // ==================== HELPERS ====================
 
         private static ProductFormViewModel ToForm(Product product)
