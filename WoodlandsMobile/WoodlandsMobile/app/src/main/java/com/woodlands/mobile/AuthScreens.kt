@@ -12,27 +12,22 @@ internal fun MainActivity.loginScreen() {
     val email = field("Email Address", "you@example.com").apply { inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS }
     val password = passwordField("Password")
     listOf(email, password).forEach { content.addView(it, marginParams(16, 8, 16, 8)) }
-    content.addView(button("Login", blue, Color.WHITE).apply {
-        setOnClickListener {
-            if (email.text.isNullOrBlank() || password.text.isNullOrBlank()) { toast("Please enter your email and password"); return@setOnClickListener }
-            val user = db.verifyCredentials(email.text.toString(), password.text.toString())
-            if (user == null) { toast("Invalid email or password."); return@setOnClickListener }
-            signIn(user)
+    val loginButton = button("Login", blue, Color.WHITE)
+    loginButton.setOnClickListener {
+        if (email.text.isNullOrBlank() || password.text.isNullOrBlank()) { toast("Please enter your email and password"); return@setOnClickListener }
+        loginButton.isEnabled = false
+        loginButton.text = "Signing in…"
+        SyncManager.login(email.text.toString(), password.text.toString()) { result ->
+            loginButton.isEnabled = true
+            loginButton.text = "Login"
+            result.onSuccess { signIn(it) }.onFailure { toast(it.message ?: "Login failed") }
         }
-    }, marginParams(16, 14, 16, 8))
+    }
+    content.addView(loginButton, marginParams(16, 14, 16, 8))
     val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
     row.addView(tv("Don't have an account?", 12, muted))
     row.addView(tv("  Register", 12, blue).apply { setTypeface(typeface, Typeface.BOLD); isClickable = true; setOnClickListener { showScreen("register") } })
     content.addView(row, marginParams(16, 4, 16, 20))
-
-    sectionTitle("Prototype accounts", "For testing — the same accounts seeded on the website")
-    listOf(
-        Triple("Admin", "admin@woodlandsdb.co.za", "admin123"),
-        Triple("Manager (any branch)", "soweto@woodlandsdb.co.za", "manager123"),
-        Triple("Customer", "customer@example.com", "customer123")
-    ).forEach { (label, e, p) ->
-        content.addView(tv("$label — $e / $p", 11, muted).apply { setPadding(dp(16), dp(2), dp(16), dp(2)) })
-    }
 }
 
 internal fun MainActivity.registerScreen() {
@@ -42,23 +37,25 @@ internal fun MainActivity.registerScreen() {
     val phone = field("Phone Number", "071 234 5678", required = false)
     val password = passwordField("Password (min 8 characters)")
     val confirm = passwordField("Confirm Password")
-    val privacy = CheckBox(this).apply { text = "I have read the privacy notice. Account details are stored locally in this prototype."; setTextColor(Color.rgb(26, 26, 26)) }
+    val privacy = CheckBox(this).apply { text = "I have read the privacy notice. My account details will be sent to Woodlands to create my account."; setTextColor(Color.rgb(26, 26, 26)) }
     listOf(fullName, email, phone, password, confirm).forEach { content.addView(it, marginParams(16, 6, 16, 6)) }
     content.addView(outlineButton("Read privacy notice", blue).apply { setOnClickListener { showPrivacyNotice() } }, marginParams(16, 6, 16, 4))
     content.addView(privacy, marginParams(16, 6, 16, 6))
-    content.addView(button("Register", red, Color.WHITE).apply {
-        setOnClickListener {
-            if (fullName.text.isNullOrBlank() || email.text.isNullOrBlank() || password.text.isNullOrBlank()) { toast("Please complete all required fields"); return@setOnClickListener }
-            if (!privacy.isChecked) { toast("Please read and acknowledge the privacy notice"); return@setOnClickListener }
-            if (password.text.toString().length < 8) { toast("Password must be at least 8 characters"); return@setOnClickListener }
-            if (password.text.toString() != confirm.text.toString()) { toast("Passwords do not match"); return@setOnClickListener }
-            val id = db.createUser(fullName.text.toString(), email.text.toString(), phone.text?.toString(), password.text.toString(), Roles.CUSTOMER, null)
-            if (id == null) { toast("An account with that email already exists"); return@setOnClickListener }
-            val user = db.findUserById(id)!!
-            toast("Welcome, ${user.fullName}!")
-            signIn(user)
+    val registerButton = button("Register", red, Color.WHITE)
+    registerButton.setOnClickListener {
+        if (fullName.text.isNullOrBlank() || email.text.isNullOrBlank() || password.text.isNullOrBlank()) { toast("Please complete all required fields"); return@setOnClickListener }
+        if (!privacy.isChecked) { toast("Please read and acknowledge the privacy notice"); return@setOnClickListener }
+        if (password.text.toString().length < 8) { toast("Password must be at least 8 characters"); return@setOnClickListener }
+        if (password.text.toString() != confirm.text.toString()) { toast("Passwords do not match"); return@setOnClickListener }
+        registerButton.isEnabled = false
+        registerButton.text = "Creating account…"
+        SyncManager.register(fullName.text.toString(), email.text.toString(), phone.text?.toString(), password.text.toString()) { result ->
+            registerButton.isEnabled = true
+            registerButton.text = "Register"
+            result.onSuccess { toast("Welcome, ${it.fullName}!"); signIn(it) }.onFailure { toast(it.message ?: "Registration failed") }
         }
-    }, marginParams(16, 14, 16, 8))
+    }
+    content.addView(registerButton, marginParams(16, 14, 16, 8))
     val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
     row.addView(tv("Already have an account?", 12, muted))
     row.addView(tv("  Login", 12, blue).apply { setTypeface(typeface, Typeface.BOLD); isClickable = true; setOnClickListener { showScreen("login") } })
@@ -81,7 +78,7 @@ internal fun MainActivity.profileScreen() {
     val email = field("Email Address", "Email").apply { setText(me.email); isEnabled = false; alpha = 0.6f }
     val phone = field("Phone Number", "Phone number").apply { setText(me.phone.orEmpty()) }
     listOf(fullName, email, phone).forEach { content.addView(it, marginParams(16, 6, 16, 6)) }
-    content.addView(tv("Email addresses can't be changed in this prototype (matches the website's account model).", 11, muted).apply { setPadding(dp(16), 0, dp(16), dp(4)) })
+    content.addView(tv("Email addresses can't be changed from the app.", 11, muted).apply { setPadding(dp(16), 0, dp(16), dp(4)) })
     content.addView(button("Save Changes", blue, Color.WHITE).apply {
         setOnClickListener {
             if (fullName.text.isNullOrBlank()) { toast("Full name is required"); return@setOnClickListener }
@@ -91,26 +88,14 @@ internal fun MainActivity.profileScreen() {
         }
     }, marginParams(16, 10, 16, 20))
 
-    sectionTitle("Change password", "")
-    val newPass = passwordField("New Password (min 8 characters)")
-    val confirmPass = passwordField("Confirm New Password")
-    listOf(newPass, confirmPass).forEach { content.addView(it, marginParams(16, 6, 16, 6)) }
-    content.addView(button("Update Password", navy, Color.WHITE).apply {
-        setOnClickListener {
-            val p = newPass.text.toString()
-            if (p.length < 8) { toast("Password must be at least 8 characters"); return@setOnClickListener }
-            if (p != confirmPass.text.toString()) { toast("Passwords do not match"); return@setOnClickListener }
-            db.updateUserPassword(me.id, p)
-            toast("Password updated")
-            newPass.setText(""); confirmPass.setText("")
-        }
-    }, marginParams(16, 6, 16, 24))
+    sectionTitle("Password", "")
+    content.addView(tv("Password changes aren't available in the app yet.", 12, muted).apply { setPadding(dp(16), 0, dp(16), dp(20)) })
 
     content.addView(outlineButton("Delete my local account and quote data", red).apply {
         setOnClickListener {
             android.app.AlertDialog.Builder(activity)
                 .setTitle("Delete local account data?")
-                .setMessage("This removes your account and quote records saved on this device. It cannot delete data held by the website or its service providers. Contact the business by email for those requests.")
+                .setMessage("This removes your account and quote records saved on this device. It cannot delete data held by Woodlands or its service providers. Contact the business by email for those requests.")
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Delete local data") { _, _ ->
                     db.deleteUserData(me.id, me.email)
@@ -136,10 +121,10 @@ internal fun MainActivity.settingsScreen() {
     }
     content.addView(accountCard, marginParams(16, 6, 16, 14))
 
-    sectionTitle("Security", "")
+    sectionTitle("Data & security", "")
     listOf(
-        "Password hashing enabled" to "Passwords are salted and SHA-256 hashed before being stored on this device.",
-        "Local-only storage" to "Account data lives in this app's private SQLite database and is not sent to the website.",
+        "Synced with Woodlands" to "Catalogue, quotes and account details are loaded from the Woodlands service whenever you're online.",
+        "Offline copy" to "A copy is kept on this device so the app loads quickly and keeps working without a connection.",
         "Role-based access" to "Screens and actions are shown or hidden based on your account's role, the same as the website."
     ).forEach { (title, sub) ->
         val c = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(12), dp(14), dp(12)); background = bg(greenBg, Color.rgb(190, 230, 200), 10) }
