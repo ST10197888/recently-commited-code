@@ -11,6 +11,19 @@ document.addEventListener("DOMContentLoaded", function () {
             var opened = mobileMenu.classList.toggle("hidden") === false;
             navToggle.setAttribute("aria-expanded", opened ? "true" : "false");
         });
+        mobileMenu.addEventListener("click", function (event) {
+            if (event.target.closest("a")) {
+                mobileMenu.classList.add("hidden");
+                navToggle.setAttribute("aria-expanded", "false");
+            }
+        });
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && !mobileMenu.classList.contains("hidden")) {
+                mobileMenu.classList.add("hidden");
+                navToggle.setAttribute("aria-expanded", "false");
+                navToggle.focus();
+            }
+        });
     }
 
     // ---------- Hero carousel ----------
@@ -30,21 +43,41 @@ document.addEventListener("DOMContentLoaded", function () {
             });
             headingBlocks.forEach(function (h, i) {
                 h.classList.toggle("hidden", i !== idx);
+                h.setAttribute("aria-hidden", i !== idx ? "true" : "false");
             });
+            dots.forEach(function (d, i) { d.setAttribute("aria-pressed", i === idx ? "true" : "false"); });
             current = idx;
         }
 
         function next() { showSlide((current + 1) % slides.length); }
         function prev() { showSlide((current - 1 + slides.length) % slides.length); }
 
-        var timer = setInterval(next, 5000); // note: prototype used 800ms — too fast to read, set to 5s here
+        var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        var carousel = slides[0].parentElement;
+        var timer = null;
+        function startTimer() {
+            if (!reducedMotion && !timer) timer = setInterval(next, 6000);
+        }
+        function stopTimer() {
+            if (timer) clearInterval(timer);
+            timer = null;
+        }
+        startTimer();
+        if (carousel) {
+            carousel.addEventListener("mouseenter", stopTimer);
+            carousel.addEventListener("mouseleave", startTimer);
+            carousel.addEventListener("focusin", stopTimer);
+            carousel.addEventListener("focusout", function (event) {
+                if (!carousel.contains(event.relatedTarget)) startTimer();
+            });
+        }
 
         var nextBtn = document.querySelector("[data-hero-next]");
         var prevBtn = document.querySelector("[data-hero-prev]");
-        if (nextBtn) nextBtn.addEventListener("click", function () { clearInterval(timer); next(); timer = setInterval(next, 5000); });
-        if (prevBtn) prevBtn.addEventListener("click", function () { clearInterval(timer); prev(); timer = setInterval(next, 5000); });
+        if (nextBtn) nextBtn.addEventListener("click", function () { stopTimer(); next(); startTimer(); });
+        if (prevBtn) prevBtn.addEventListener("click", function () { stopTimer(); prev(); startTimer(); });
         dots.forEach(function (d, i) {
-            d.addEventListener("click", function () { clearInterval(timer); showSlide(i); timer = setInterval(next, 5000); });
+            d.addEventListener("click", function () { stopTimer(); showSlide(i); startTimer(); });
         });
     }
 

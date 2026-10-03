@@ -1,0 +1,4 @@
+com.woodlands.mobile.test.app-androidTest-0 C:\Users\kenne\Desktop\other stuff\WoodlandsMobile\app\build\generated\res\resValues\androidTest\debug
+com.woodlands.mobile.test.app-mergeDebugAndroidTestResources-1 C:\Users\kenne\Desktop\other stuff\WoodlandsMobile\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\merged.dir
+com.woodlands.mobile.test.app-mergeDebugAndroidTestResources-2 C:\Users\kenne\Desktop\other stuff\WoodlandsMobile\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\stripped.dir
+com.woodlands.mobile.test.app-debugAndroidTest-3 C:\Users\kenne\Desktop\other stuff\WoodlandsMobile\app\build\intermediates\merged_res\debugAndroidTest\mergeDebugAndroidTestResources

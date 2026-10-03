@@ -1,0 +1,66 @@
+[
+    {
+        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_tv_4.jpg.flat",
+        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/tv_4.jpg"
+    },
+    {
+        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_9.jpg.flat",
+        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_9.jpg"
+    },
+    {
+        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_12.jpg.flat",
+        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_12.jpg"
+    },
+    {
+        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_tv_2.jpg.flat",
+        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/tv_2.jpg"
+    },
+    {
+        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_tv_9.jpg.flat",
+        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/tv_9.jpg"
+    },
+    {
+        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_4.jpg.flat",
+        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_4.jpg"
+    },
+    {
+        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_11.jpg.flat",
+        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_11.jpg"
+    },
+    {
+        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_tv_8.jpg.flat",
+        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/tv_8.jpg"
+    },
+    {
+        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_10.jpg.flat",
+        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_10.jpg"
+    },
+    {
+        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_3.jpg.flat",
+        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_3.jpg"
+    },
+    {
+        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_tv_1.jpg.flat",
+        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/tv_1.jpg"
+    },
+    {
+        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_6.jpg.flat",
+        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_6.jpg"
+    },
+    {
+        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_tv_10.jpg.flat",
+        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/tv_10.jpg"
+    },
+    {
+        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_tv_5.jpg.flat",
+        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/tv_5.jpg"
+    },
+    {
+        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_2.jpg.flat",
+        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_2.jpg"
+    },
+    {
+        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_7.jpg.flat",
+        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_7.jpg"
+    }
+]

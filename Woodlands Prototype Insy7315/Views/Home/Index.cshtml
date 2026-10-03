@@ -150,6 +150,8 @@
     </div>
 </section>
 
+@if (Model.TestimonialsSnippet?.Any() == true)
+{
 <!-- TESTIMONIALS SNIPPET -->
 <section class="py-16 sm:py-20 bg-white">
     <div class="max-w-content mx-auto px-4 sm:px-6 lg:px-8">
@@ -180,3 +182,4 @@
         </div>
     </div>
 </section>
+}

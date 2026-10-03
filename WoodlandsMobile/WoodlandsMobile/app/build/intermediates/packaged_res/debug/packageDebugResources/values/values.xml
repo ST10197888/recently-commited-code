@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="white">#FFFFFF</color>
+    <color name="wood_blue">#0047AB</color>
+    <color name="wood_cream">#F7F5F0</color>
+    <color name="wood_muted">#6B6860</color>
+    <color name="wood_red">#DC143C</color>
+    <color name="wood_text">#1A1A1A</color>
+    <string name="app_name">Woodlands Designer Boards</string>
+    <style name="Theme.Woodlands" parent="android:style/Theme.Material.Light.NoActionBar"><item name="android:fontFamily">sans</item><item name="android:windowLightStatusBar">false</item><item name="android:statusBarColor">#0047AB</item><item name="android:navigationBarColor">#FFFFFF</item><item name="android:colorAccent">#0047AB</item></style>
+</resources>

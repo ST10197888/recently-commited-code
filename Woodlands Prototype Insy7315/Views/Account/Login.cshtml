@@ -40,7 +40,7 @@
 
             <div>
                 <label asp-for="Password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                <input asp-for="Password"
+                <input asp-for="Password" type="password"
                        class="field"
                        autocomplete="current-password"
                        placeholder="Enter your password" />
@@ -59,54 +59,6 @@
             </button>
         </form>
 
-        <div class="mt-8">
-            <div class="relative mb-4">
-                <div class="absolute inset-0 flex items-center">
-                    <div class="w-full border-t border-gray-200"></div>
-                </div>
-                <div class="relative flex justify-center">
-                    <span class="bg-white px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Quick Login</span>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 gap-2">
-                <button type="button"
-                        class="quick-login w-full text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg py-2.5 transition-colors"
-                        data-email="admin@woodlandsdb.co.za"
-                        data-password="admin123">
-                    Admin
-                </button>
-
-                <button type="button"
-                        class="quick-login w-full text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg py-2.5 transition-colors"
-                        data-email="soweto@woodlandsdb.co.za"
-                        data-password="manager123">
-                    Manager &ndash; Soweto
-                </button>
-
-                <button type="button"
-                        class="quick-login w-full text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg py-2.5 transition-colors"
-                        data-email="roodepoort@woodlandsdb.co.za"
-                        data-password="manager123">
-                    Manager &ndash; Roodepoort
-                </button>
-
-                <button type="button"
-                        class="quick-login w-full text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg py-2.5 transition-colors"
-                        data-email="randfontein@woodlandsdb.co.za"
-                        data-password="manager123">
-                    Manager &ndash; Randfontein
-                </button>
-
-                <button type="button"
-                        class="quick-login w-full text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg py-2.5 transition-colors"
-                        data-email="customer@example.com"
-                        data-password="customer123">
-                    Customer
-                </button>
-            </div>
-        </div>
-
         <div class="text-center mt-6">
             <p class="text-sm text-gray-500">
                 Don't have an account?
@@ -120,19 +72,4 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
 
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            const quickLoginButtons = document.querySelectorAll(".quick-login");
-            const emailInput = document.getElementById("Email");
-            const passwordInput = document.getElementById("Password");
-
-            quickLoginButtons.forEach(function (button) {
-                button.addEventListener("click", function () {
-                    emailInput.value = button.dataset.email;
-                    passwordInput.value = button.dataset.password;
-                    emailInput.focus();
-                });
-            });
-        });
-    </script>
 }

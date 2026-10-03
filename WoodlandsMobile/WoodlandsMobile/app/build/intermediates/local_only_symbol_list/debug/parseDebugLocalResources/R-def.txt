@@ -1,0 +1,26 @@
+R_DEF: Internal format may change without notice
+local
+color white
+color wood_blue
+color wood_cream
+color wood_muted
+color wood_red
+color wood_text
+drawable kitchen_10
+drawable kitchen_11
+drawable kitchen_12
+drawable kitchen_2
+drawable kitchen_3
+drawable kitchen_4
+drawable kitchen_6
+drawable kitchen_7
+drawable kitchen_9
+drawable tv_1
+drawable tv_10
+drawable tv_2
+drawable tv_4
+drawable tv_5
+drawable tv_8
+drawable tv_9
+string app_name
+style Theme.Woodlands

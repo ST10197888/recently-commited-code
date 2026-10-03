@@ -81,9 +81,13 @@ namespace Woodlands_Prototype_Insy7315.Models
             {
                 if (string.IsNullOrWhiteSpace(Price))
                     return "Price on request";
-                return Price;
 
-                return IsFromPrice ? $"From {Price}" : Price;
+                var price = Price.Trim();
+
+                if (IsFromPrice && !price.StartsWith("From ", StringComparison.OrdinalIgnoreCase))
+                    return $"From {price}";
+
+                return price;
             }
         }
 
