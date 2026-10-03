@@ -55,7 +55,7 @@ class MainActivity : Activity() {
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        db = LocalDb(this)
+        db = LocalDb.shared(this)
         session = Session(this)
         window.statusBarColor = blue
         pageContainer = FrameLayout(this)
@@ -63,7 +63,7 @@ class MainActivity : Activity() {
         showScreen("home")
     }
 
-    override fun onDestroy() { db.close(); super.onDestroy() }
+    override fun onDestroy() { super.onDestroy() }
 
     @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun onBackPressed() {
@@ -282,12 +282,6 @@ class MainActivity : Activity() {
             sectionTitle("Account", "Log in for order history and, for staff accounts, dashboard tools")
             content.addView(button("Login", blue, Color.WHITE).apply { setOnClickListener { showScreen("login") } }, marginParams(16, 6, 16, 6))
             content.addView(outlineButton("Register", blue).apply { setOnClickListener { showScreen("register") } }, marginParams(16, 0, 16, 12))
-            sectionTitle("Quick login (prototype)", "Seeded demo accounts — same credentials as the website")
-            quickLoginRow("Admin", "admin@woodlandsdb.co.za", "admin123", "Full system access")
-            quickLoginRow("Soweto Manager", "soweto@woodlandsdb.co.za", "manager123", "Soweto branch")
-            quickLoginRow("Roodepoort Manager", "roodepoort@woodlandsdb.co.za", "manager123", "Roodepoort branch")
-            quickLoginRow("Randfontein Manager", "randfontein@woodlandsdb.co.za", "manager123", "Randfontein branch")
-            quickLoginRow("Customer", "customer@example.com", "customer123", "Browsing & quotes only")
         } else {
             val cardV = card().apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(14), dp(16), dp(14)) }
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -312,21 +306,6 @@ class MainActivity : Activity() {
         footerNote()
     }
 
-    private fun quickLoginRow(label: String, email: String, password: String, sub: String) {
-        val row = card().apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(14), dp(10), dp(14), dp(10)) }
-        val info = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        info.addView(tv(label, 14, blue).apply { setTypeface(typeface, Typeface.BOLD) })
-        info.addView(tv(sub, 11, muted))
-        row.addView(info, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        row.addView(button("Use", blue, Color.WHITE).apply { setOnClickListener { quickLogin(email, password) } }, LinearLayout.LayoutParams(dp(66), dp(38)))
-        content.addView(row, marginParams(16, 4, 16, 4))
-    }
-
-    internal fun quickLogin(email: String, password: String) {
-        val u = db.verifyCredentials(email, password)
-        if (u == null) { toast("That demo account could not be found."); return }
-        signIn(u)
-    }
 
     internal fun signIn(user: AppUser) {
         session.userId = user.id

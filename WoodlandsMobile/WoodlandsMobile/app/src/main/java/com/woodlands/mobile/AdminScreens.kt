@@ -152,14 +152,15 @@ internal fun MainActivity.userFormScreen() {
     val name = field("Full Name", "e.g. Thabo Mokoena").apply { if (existing != null) setText(existing.fullName) }
     val email = field("Email Address", "you@example.com").apply {
         inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
-        if (existing != null) setText(existing.email)
+        if (existing != null) { setText(existing.email); isEnabled = false; alpha = 0.6f }
     }
     val phone = field("Phone Number", "071 234 5678").apply { if (existing?.phone != null) setText(existing.phone) }
     val role = spinnerField("Role", Roles.ALL, existing?.role ?: Roles.CUSTOMER)
-    val password = passwordField(if (existing == null) "Password" else "New Password (leave blank to keep current)")
+    val password = passwordField("Password (min 8 characters)")
     listOf(name, email, phone).forEach { content.addView(it, marginParams(16, 6, 16, 6)) }
     content.addView(role, marginParams(16, 6, 16, 6))
-    content.addView(password, marginParams(16, 6, 16, 6))
+    if (existing == null) content.addView(password, marginParams(16, 6, 16, 6))
+    else content.addView(tv("Email and password can't be changed from the app.", 11, muted).apply { setPadding(dp(16), dp(4), dp(16), dp(4)) })
     val activeCheck = CheckBox(this).apply { text = "Active"; isChecked = existing?.active ?: true }
     content.addView(activeCheck, marginParams(16, 8, 16, 0))
     content.addView(button(if (existing == null) "Create User" else "Save Changes", red, Color.WHITE).apply {
@@ -172,19 +173,16 @@ internal fun MainActivity.userFormScreen() {
             if (fullName.isBlank() || emailValue.isBlank()) { toast("Name and email are required"); return@setOnClickListener }
             if (existing == null) {
                 val pwd = password.text.toString()
-                if (pwd.isBlank()) { toast("A password is required for new users"); return@setOnClickListener }
+                if (pwd.length < 8) { toast("Password must be at least 8 characters"); return@setOnClickListener }
                 val newId = db.createUser(fullName, emailValue, phoneValue, pwd, roleValue, branch)
                 if (newId == null) { toast("A user with that email already exists"); return@setOnClickListener }
             } else {
                 db.updateUserAdmin(existing.id, fullName, emailValue, phoneValue, roleValue, branch, activeCheck.isChecked)
-                val newPwd = password.text.toString()
-                if (newPwd.isNotBlank()) db.updateUserPassword(existing.id, newPwd)
             }
             toast("Saved"); editUserId = null; showScreen("users")
         }
     }, marginParams(16, 10, 16, 24))
 }
-
 internal fun MainActivity.manageProductsScreen() {
     requireStaff() ?: return
     pageIntro("Products", "Product CRUD is available to admins and branch managers.")
@@ -449,44 +447,6 @@ internal fun MainActivity.manageFaqsScreen() {
         c.addView(row)
         content.addView(c, marginParams(16, 5, 16, 5))
     }
-}
-internal fun MainActivity.userFormScreen() {
-    requireAdmin() ?: return
-    val existing = editUserId?.let { id -> db.loadUsers().firstOrNull { it.id == id } }
-    pageIntro(if (existing == null) "Add User" else "Edit User", "")
-    val name = field("Full Name", "e.g. Thabo Mokoena").apply { if (existing != null) setText(existing.fullName) }
-    val email = field("Email Address", "you@example.com").apply {
-        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
-        if (existing != null) { setText(existing.email); isEnabled = false; alpha = 0.6f }
-    }
-    val phone = field("Phone Number", "071 234 5678").apply { if (existing?.phone != null) setText(existing.phone) }
-    val role = spinnerField("Role", Roles.ALL, existing?.role ?: Roles.CUSTOMER)
-    val password = passwordField("Password (min 8 characters)")
-    listOf(name, email, phone).forEach { content.addView(it, marginParams(16, 6, 16, 6)) }
-    content.addView(role, marginParams(16, 6, 16, 6))
-    if (existing == null) content.addView(password, marginParams(16, 6, 16, 6))
-    else content.addView(tv("Email and password can't be changed from the app.", 11, muted).apply { setPadding(dp(16), dp(4), dp(16), dp(4)) })
-    val activeCheck = CheckBox(this).apply { text = "Active"; isChecked = existing?.active ?: true }
-    content.addView(activeCheck, marginParams(16, 8, 16, 0))
-    content.addView(button(if (existing == null) "Create User" else "Save Changes", red, Color.WHITE).apply {
-        setOnClickListener {
-            val fullName = name.text.toString().trim()
-            val emailValue = email.text.toString().trim()
-            val phoneValue = phone.text.toString().trim().ifBlank { null }
-            val roleValue = spinnerValue(role)
-            val branch = Roles.branchFor(roleValue)
-            if (fullName.isBlank() || emailValue.isBlank()) { toast("Name and email are required"); return@setOnClickListener }
-            if (existing == null) {
-                val pwd = password.text.toString()
-                if (pwd.length < 8) { toast("Password must be at least 8 characters"); return@setOnClickListener }
-                val newId = db.createUser(fullName, emailValue, phoneValue, pwd, roleValue, branch)
-                if (newId == null) { toast("A user with that email already exists"); return@setOnClickListener }
-            } else {
-                db.updateUserAdmin(existing.id, fullName, emailValue, phoneValue, roleValue, branch, activeCheck.isChecked)
-            }
-            toast("Saved"); editUserId = null; showScreen("users")
-        }
-    }, marginParams(16, 10, 16, 24))
 }
 
 internal fun MainActivity.faqFormScreen() {

@@ -1,4 +1,38 @@
-com.woodlands.mobile.test.app-androidTest-0 C:\Users\kenne\Desktop\other stuff\WoodlandsMobile\app\build\generated\res\resValues\androidTest\debug
-com.woodlands.mobile.test.app-mergeDebugAndroidTestResources-1 C:\Users\kenne\Desktop\other stuff\WoodlandsMobile\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\merged.dir
-com.woodlands.mobile.test.app-mergeDebugAndroidTestResources-2 C:\Users\kenne\Desktop\other stuff\WoodlandsMobile\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\stripped.dir
-com.woodlands.mobile.test.app-debugAndroidTest-3 C:\Users\kenne\Desktop\other stuff\WoodlandsMobile\app\build\intermediates\merged_res\debugAndroidTest\mergeDebugAndroidTestResources
+com.woodlands.mobile.test.app-ui-release-0 C:\Users\kenne\.gradle\caches\8.9\transforms\123b61d37aa34158efe79f300ccd3bc3\transformed\ui-release\res
+com.woodlands.mobile.test.app-ui-graphics-release-1 C:\Users\kenne\.gradle\caches\8.9\transforms\12e1939a072e7bb3db78e442f93d9e10\transformed\ui-graphics-release\res
+com.woodlands.mobile.test.app-runtime-release-2 C:\Users\kenne\.gradle\caches\8.9\transforms\151631d0c0ba295d6224dbb552340d01\transformed\runtime-release\res
+com.woodlands.mobile.test.app-core-runtime-2.2.0-3 C:\Users\kenne\.gradle\caches\8.9\transforms\17c2f6b23cd913db5ea64278319b9c14\transformed\core-runtime-2.2.0\res
+com.woodlands.mobile.test.app-activity-ktx-1.10.0-4 C:\Users\kenne\.gradle\caches\8.9\transforms\312b4fab2b8a3414ad40139764546d28\transformed\activity-ktx-1.10.0\res
+com.woodlands.mobile.test.app-lifecycle-runtime-compose-release-5 C:\Users\kenne\.gradle\caches\8.9\transforms\38ef601666f1a4a779c9d5771a5720bf\transformed\lifecycle-runtime-compose-release\res
+com.woodlands.mobile.test.app-core-ktx-1.15.0-6 C:\Users\kenne\.gradle\caches\8.9\transforms\3919688e981ec9d735305c3d366204fc\transformed\core-ktx-1.15.0\res
+com.woodlands.mobile.test.app-ui-util-release-7 C:\Users\kenne\.gradle\caches\8.9\transforms\48784a4f96846f6aa303c84ce0c6d250\transformed\ui-util-release\res
+com.woodlands.mobile.test.app-customview-poolingcontainer-1.0.0-8 C:\Users\kenne\.gradle\caches\8.9\transforms\4ba721d16715c7e9b4ac0f245d22d41c\transformed\customview-poolingcontainer-1.0.0\res
+com.woodlands.mobile.test.app-savedstate-1.2.1-9 C:\Users\kenne\.gradle\caches\8.9\transforms\5199a3f0647c175ea37b297db953d762\transformed\savedstate-1.2.1\res
+com.woodlands.mobile.test.app-ui-test-release-10 C:\Users\kenne\.gradle\caches\8.9\transforms\5288a3188c0dc3507f7aa8ef0042eee2\transformed\ui-test-release\res
+com.woodlands.mobile.test.app-profileinstaller-1.4.0-11 C:\Users\kenne\.gradle\caches\8.9\transforms\5473644ba0bd49ef81962339d39248f6\transformed\profileinstaller-1.4.0\res
+com.woodlands.mobile.test.app-ui-geometry-release-12 C:\Users\kenne\.gradle\caches\8.9\transforms\657d728a0524f2518c06edc70c2069a0\transformed\ui-geometry-release\res
+com.woodlands.mobile.test.app-ui-text-release-13 C:\Users\kenne\.gradle\caches\8.9\transforms\738e4f749fcfa48f92bf8245533611bc\transformed\ui-text-release\res
+com.woodlands.mobile.test.app-lifecycle-viewmodel-savedstate-2.8.7-14 C:\Users\kenne\.gradle\caches\8.9\transforms\778cf0308f06e5c4209ab0150af4e624\transformed\lifecycle-viewmodel-savedstate-2.8.7\res
+com.woodlands.mobile.test.app-runtime-saveable-release-15 C:\Users\kenne\.gradle\caches\8.9\transforms\77f4225cb469ff4bdd8c8a17eadae357\transformed\runtime-saveable-release\res
+com.woodlands.mobile.test.app-activity-compose-1.10.0-16 C:\Users\kenne\.gradle\caches\8.9\transforms\7fdc17785925fc093326f2a4e6890b45\transformed\activity-compose-1.10.0\res
+com.woodlands.mobile.test.app-startup-runtime-1.1.1-17 C:\Users\kenne\.gradle\caches\8.9\transforms\802d15ab3f17d0d372794a38f6d4f737\transformed\startup-runtime-1.1.1\res
+com.woodlands.mobile.test.app-ui-unit-release-18 C:\Users\kenne\.gradle\caches\8.9\transforms\90116b84c0089d81329d35ae2fc212b6\transformed\ui-unit-release\res
+com.woodlands.mobile.test.app-lifecycle-runtime-ktx-release-19 C:\Users\kenne\.gradle\caches\8.9\transforms\96059f5fe718e90e397e35b6ffd51fd7\transformed\lifecycle-runtime-ktx-release\res
+com.woodlands.mobile.test.app-lifecycle-viewmodel-release-20 C:\Users\kenne\.gradle\caches\8.9\transforms\a483df286ac277a2bd89b205e989905f\transformed\lifecycle-viewmodel-release\res
+com.woodlands.mobile.test.app-ui-test-junit4-release-21 C:\Users\kenne\.gradle\caches\8.9\transforms\a4d8afe7cbd31f91501cecbd23078eac\transformed\ui-test-junit4-release\res
+com.woodlands.mobile.test.app-activity-1.10.0-22 C:\Users\kenne\.gradle\caches\8.9\transforms\ada4d432d14658088012a460e1eab197\transformed\activity-1.10.0\res
+com.woodlands.mobile.test.app-lifecycle-livedata-core-2.8.7-23 C:\Users\kenne\.gradle\caches\8.9\transforms\b616ebc06b0de418e2fe07e50d703358\transformed\lifecycle-livedata-core-2.8.7\res
+com.woodlands.mobile.test.app-lifecycle-viewmodel-ktx-2.8.7-24 C:\Users\kenne\.gradle\caches\8.9\transforms\beb8e7129445df59d6ad3a214100c9a1\transformed\lifecycle-viewmodel-ktx-2.8.7\res
+com.woodlands.mobile.test.app-tracing-1.2.0-25 C:\Users\kenne\.gradle\caches\8.9\transforms\c3b9663123a8e7b78e200a59c155b90f\transformed\tracing-1.2.0\res
+com.woodlands.mobile.test.app-savedstate-ktx-1.2.1-26 C:\Users\kenne\.gradle\caches\8.9\transforms\ca6874f2bdee4f1816786d9390c7cb72\transformed\savedstate-ktx-1.2.1\res
+com.woodlands.mobile.test.app-core-1.15.0-27 C:\Users\kenne\.gradle\caches\8.9\transforms\cd46abea9d16e862d0dfae7b2db85bca\transformed\core-1.15.0\res
+com.woodlands.mobile.test.app-core-1.6.1-28 C:\Users\kenne\.gradle\caches\8.9\transforms\d0f421d03e9905eb488ba77f569b1264\transformed\core-1.6.1\res
+com.woodlands.mobile.test.app-annotation-experimental-1.4.1-29 C:\Users\kenne\.gradle\caches\8.9\transforms\e0e338b3f95b151fd3e8aa27f7091dc0\transformed\annotation-experimental-1.4.1\res
+com.woodlands.mobile.test.app-lifecycle-runtime-release-30 C:\Users\kenne\.gradle\caches\8.9\transforms\e64478da7d914ea0e0500601debfb46a\transformed\lifecycle-runtime-release\res
+com.woodlands.mobile.test.app-emoji2-1.3.0-31 C:\Users\kenne\.gradle\caches\8.9\transforms\e9a4de5f87829d8e56de87ff35dfed60\transformed\emoji2-1.3.0\res
+com.woodlands.mobile.test.app-lifecycle-process-2.8.7-32 C:\Users\kenne\.gradle\caches\8.9\transforms\ef3f1b8cf943e0590111f6b7a018d36f\transformed\lifecycle-process-2.8.7\res
+com.woodlands.mobile.test.app-graphics-path-1.0.1-33 C:\Users\kenne\.gradle\caches\8.9\transforms\f20a1997074724b7156eff7f2a2bc541\transformed\graphics-path-1.0.1\res
+com.woodlands.mobile.test.app-androidTest-34 C:\Users\kenne\Documents\GitHub\recently-commited-code\WoodlandsMobile\WoodlandsMobile\app\build\generated\res\resValues\androidTest\debug
+com.woodlands.mobile.test.app-mergeDebugAndroidTestResources-35 C:\Users\kenne\Documents\GitHub\recently-commited-code\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\merged.dir
+com.woodlands.mobile.test.app-mergeDebugAndroidTestResources-36 C:\Users\kenne\Documents\GitHub\recently-commited-code\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\stripped.dir
+com.woodlands.mobile.test.app-debugAndroidTest-37 C:\Users\kenne\Documents\GitHub\recently-commited-code\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\merged_res\debugAndroidTest\mergeDebugAndroidTestResources
