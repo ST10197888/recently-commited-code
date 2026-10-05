@@ -212,9 +212,9 @@ const faqs = [
 // BRANCHES
  
 const branches = [
-    { name: "Soweto", region: "Soweto", phone: "+27 11 xxx xxxx", hours: "Mon-Fri: 8am-5pm", notes: "Main branch" },
-    { name: "Roodepoort", region: "Roodepoort", phone: "+27 11 xxx xxxx", hours: "Mon-Fri: 8am-5pm", notes: "Branch office" },
-    { name: "Randfontein", region: "Randfontein", phone: "+27 11 xxx xxxx", hours: "Mon-Fri: 8am-5pm", notes: "Branch office" }
+    { name: "Soweto", region: "Soweto", phone: "+27 11 xxx xxxx", hours: "Mon-Fri: 8am-5pm", notes: "Main branch", address: "Soweto, Johannesburg, Gauteng" },
+    { name: "Roodepoort", region: "Roodepoort", phone: "+27 11 xxx xxxx", hours: "Mon-Fri: 8am-5pm", notes: "Branch office", address: "Roodepoort, Johannesburg, Gauteng" },
+    { name: "Randfontein", region: "Randfontein", phone: "+27 11 xxx xxxx", hours: "Mon-Fri: 8am-5pm", notes: "Branch office", address: "Randfontein, Gauteng" }
 ];
 
  

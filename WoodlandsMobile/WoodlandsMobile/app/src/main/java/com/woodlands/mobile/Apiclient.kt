@@ -15,9 +15,15 @@ sealed class ApiResult {
 }
 
 object ApiClient {
-    const val BASE_URL = "http://10.0.2.2:5000"
 
-    private val jsonType = "application/json; charset=utf-8".toMediaType()
+    private const val HOSTED_BASE_URL =
+        "https://insy7315-api-repository-production.up.railway.app"
+
+    private const val LOCAL_BASE_URL =
+        "http://10.0.2.2:5000"
+
+    private val jsonType =
+        "application/json; charset=utf-8".toMediaType()
 
     private val http = OkHttpClient.Builder()
         .connectTimeout(8, TimeUnit.SECONDS)
@@ -26,30 +32,81 @@ object ApiClient {
         .build()
 
     fun get(path: String): ApiResult =
-        call(Request.Builder().url(BASE_URL + path).get().build())
+        call(path) { url ->
+            Request.Builder()
+                .url(url)
+                .get()
+                .build()
+        }
 
     fun post(path: String, body: String): ApiResult =
-        call(Request.Builder().url(BASE_URL + path).post(body.toRequestBody(jsonType)).build())
+        call(path) { url ->
+            Request.Builder()
+                .url(url)
+                .post(body.toRequestBody(jsonType))
+                .build()
+        }
 
     fun put(path: String, body: String): ApiResult =
-        call(Request.Builder().url(BASE_URL + path).put(body.toRequestBody(jsonType)).build())
+        call(path) { url ->
+            Request.Builder()
+                .url(url)
+                .put(body.toRequestBody(jsonType))
+                .build()
+        }
 
     fun delete(path: String): ApiResult =
-        call(Request.Builder().url(BASE_URL + path).delete().build())
-
-    private fun call(request: Request): ApiResult = try {
-        http.newCall(request).execute().use { response ->
-            val text = response.body?.string().orEmpty()
-            if (response.isSuccessful) ApiResult.Success(text)
-            else ApiResult.Failure(response.code, errorMessage(text, response.code))
+        call(path) { url ->
+            Request.Builder()
+                .url(url)
+                .delete()
+                .build()
         }
-    } catch (e: IOException) {
-        ApiResult.Offline(e)
+
+    private fun call(
+        path: String,
+        requestFactory: (String) -> Request
+    ): ApiResult {
+
+        val hostedUrl = HOSTED_BASE_URL + path
+
+        try {
+            return execute(requestFactory(hostedUrl))
+        } catch (e: IOException) {
+            // Railway could not be reached.
+            // Only now do we try the local API.
+        }
+
+        val localUrl = LOCAL_BASE_URL + path
+
+        return try {
+            execute(requestFactory(localUrl))
+        } catch (e: IOException) {
+            ApiResult.Offline(e)
+        }
     }
 
-    private fun errorMessage(body: String, code: Int): String = try {
-        JSONObject(body).optString("error").ifBlank { "Request failed ($code)" }
-    } catch (e: Exception) {
-        "Request failed ($code)"
+    private fun execute(request: Request): ApiResult {
+        return http.newCall(request).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+
+            if (response.isSuccessful) {
+                ApiResult.Success(text)
+            } else {
+                ApiResult.Failure(
+                    response.code,
+                    errorMessage(text, response.code)
+                )
+            }
+        }
     }
+
+    private fun errorMessage(body: String, code: Int): String =
+        try {
+            JSONObject(body)
+                .optString("error")
+                .ifBlank { "Request failed ($code)" }
+        } catch (e: Exception) {
+            "Request failed ($code)"
+        }
 }

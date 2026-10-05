@@ -1,66 +1,174 @@
 [
     {
-        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_tv_4.jpg.flat",
-        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/tv_4.jpg"
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_app_logo_transparent.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\app_logo_transparent.png"
     },
     {
-        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_9.jpg.flat",
-        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_9.jpg"
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_kitchen_9.jpg.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\kitchen_9.jpg"
     },
     {
-        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_12.jpg.flat",
-        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_12.jpg"
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_kitchen_12.jpg.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\kitchen_12.jpg"
     },
     {
-        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_tv_2.jpg.flat",
-        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/tv_2.jpg"
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-xxxhdpi\\ic_launcher.png"
     },
     {
-        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_tv_9.jpg.flat",
-        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/tv_9.jpg"
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-xxxhdpi_ic_launcher_background.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-xxxhdpi\\ic_launcher_background.png"
     },
     {
-        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_4.jpg.flat",
-        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_4.jpg"
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_tv_9.jpg.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\tv_9.jpg"
     },
     {
-        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_11.jpg.flat",
-        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_11.jpg"
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_tv_10.jpg.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\tv_10.jpg"
     },
     {
-        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_tv_8.jpg.flat",
-        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/tv_8.jpg"
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-mdpi_ic_launcher_background.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-mdpi\\ic_launcher_background.png"
     },
     {
-        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_10.jpg.flat",
-        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_10.jpg"
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-xhdpi_ic_launcher_monochrome.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-xhdpi\\ic_launcher_monochrome.png"
     },
     {
-        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_3.jpg.flat",
-        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_3.jpg"
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_tv_5.jpg.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\tv_5.jpg"
     },
     {
-        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_tv_1.jpg.flat",
-        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/tv_1.jpg"
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\layout_row_status.xml.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\layout\\row_status.xml"
     },
     {
-        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_6.jpg.flat",
-        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_6.jpg"
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_app_logo.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\app_logo.png"
     },
     {
-        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_tv_10.jpg.flat",
-        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/tv_10.jpg"
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_kitchen_4.jpg.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\kitchen_4.jpg"
     },
     {
-        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_tv_5.jpg.flat",
-        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/tv_5.jpg"
+        "merged": "com.woodlands.mobile.app-debug-49:/layout_view_api_status.xml.flat",
+        "source": "com.woodlands.mobile.app-main-51:/layout/view_api_status.xml"
     },
     {
-        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_2.jpg.flat",
-        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_2.jpg"
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-xxhdpi_ic_launcher_background.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-xxhdpi\\ic_launcher_background.png"
     },
     {
-        "merged": "com.woodlands.mobile.app-debug-49:/drawable-nodpi_kitchen_7.jpg.flat",
-        "source": "com.woodlands.mobile.app-main-51:/drawable-nodpi/kitchen_7.jpg"
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_kitchen_2.jpg.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\kitchen_2.jpg"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_kitchen_7.jpg.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\kitchen_7.jpg"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-xxhdpi_ic_launcher_foreground.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-xxhdpi\\ic_launcher_foreground.png"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_tv_8.jpg.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\tv_8.jpg"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-xxhdpi_ic_launcher_monochrome.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-xxhdpi\\ic_launcher_monochrome.png"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-mdpi_ic_launcher.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-mdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-mdpi_ic_launcher_foreground.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-mdpi\\ic_launcher_foreground.png"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_kitchen_11.jpg.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\kitchen_11.jpg"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_tv_1.jpg.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\tv_1.jpg"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_kitchen_6.jpg.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\kitchen_6.jpg"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-xxhdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-xhdpi_ic_launcher_foreground.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-xhdpi\\ic_launcher_foreground.png"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-xhdpi_ic_launcher_background.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-xhdpi\\ic_launcher_background.png"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_tv_4.jpg.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\tv_4.jpg"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-mdpi_ic_launcher_monochrome.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-mdpi\\ic_launcher_monochrome.png"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-hdpi_ic_launcher.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-hdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-anydpi-v26\\ic_launcher.xml"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\layout_view_api_status.xml.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\layout\\view_api_status.xml"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-hdpi_ic_launcher_background.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-hdpi\\ic_launcher_background.png"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-xxxhdpi_ic_launcher_foreground.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-xxxhdpi\\ic_launcher_foreground.png"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_tv_2.jpg.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\tv_2.jpg"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-xxxhdpi_ic_launcher_monochrome.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-xxxhdpi\\ic_launcher_monochrome.png"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\layout_view_connections.xml.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\layout\\view_connections.xml"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_kitchen_3.jpg.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\kitchen_3.jpg"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-hdpi_ic_launcher_foreground.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-hdpi\\ic_launcher_foreground.png"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-xhdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\drawable-nodpi_kitchen_10.jpg.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\drawable-nodpi\\kitchen_10.jpg"
+    },
+    {
+        "merged": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-debug-49:\\mipmap-hdpi_ic_launcher_monochrome.png.flat",
+        "source": "C:\\Users\\kenne\\.gradle\\daemon\\8.9\\com.woodlands.mobile.app-main-51:\\mipmap-hdpi\\ic_launcher_monochrome.png"
     }
 ]

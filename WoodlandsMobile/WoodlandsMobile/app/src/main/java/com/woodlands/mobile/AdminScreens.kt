@@ -224,7 +224,7 @@ internal fun MainActivity.productFormScreen() {
     val summary = card().apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(16), dp(12), dp(16), dp(12))
-        background = bg(Color.rgb(240, 248, 255), Color.TRANSPARENT, 8)
+        background = bg(Color.rgb(244, 248, 243), Color.TRANSPARENT, 8)
         val lbl = tv(if (isEditing) "Editing" else "Creating", 11, blue).apply { setTypeface(typeface, Typeface.BOLD); setPadding(0, 0, dp(8), 0) }
         val row = LinearLayout(this@productFormScreen).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         row.addView(lbl)
@@ -244,9 +244,9 @@ internal fun MainActivity.productFormScreen() {
     val categoryButtons = mutableListOf<android.widget.Button>()
     val categoryRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(16), 0, dp(16), 0) }
     categories.forEach { cat ->
-        val btn = button(cat, if (existing?.category == cat) blue else Color.rgb(224, 240, 255), if (existing?.category == cat) Color.WHITE else blue).apply {
+        val btn = button(cat, if (existing?.category == cat) blue else Color.rgb(238, 244, 236), if (existing?.category == cat) Color.WHITE else blue).apply {
             setOnClickListener {
-                categoryButtons.forEach { it.setBackgroundColor(Color.rgb(224, 240, 255)); it.setTextColor(blue) }
+                categoryButtons.forEach { it.setBackgroundColor(Color.rgb(238, 244, 236)); it.setTextColor(blue) }
                 setBackgroundColor(blue)
                 setTextColor(Color.WHITE)
                 selectedCategory = cat
@@ -293,9 +293,9 @@ internal fun MainActivity.productFormScreen() {
     val tagButtonsRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(16), 0, dp(16), 0); gravity = Gravity.CENTER_VERTICAL }
     val tagButtons = mutableListOf<android.widget.Button>()
     var selectedTagValue: String? = existing?.tag
-    val noneBtn = button("None", if (selectedTagValue.isNullOrBlank()) blue else Color.rgb(224, 240, 255), if (selectedTagValue.isNullOrBlank()) Color.WHITE else blue).apply {
+    val noneBtn = button("None", if (selectedTagValue.isNullOrBlank()) blue else Color.rgb(238, 244, 236), if (selectedTagValue.isNullOrBlank()) Color.WHITE else blue).apply {
         setOnClickListener {
-            tagButtons.forEach { it.setBackgroundColor(Color.rgb(224, 240, 255)); it.setTextColor(blue) }
+            tagButtons.forEach { it.setBackgroundColor(Color.rgb(238, 244, 236)); it.setTextColor(blue) }
             setBackgroundColor(blue)
             setTextColor(Color.WHITE)
             selectedTagValue = null
@@ -305,9 +305,9 @@ internal fun MainActivity.productFormScreen() {
     tagButtonsRow.addView(noneBtn, marginParams(0, 0, 8, 0))
 
     presetTags.forEach { tag ->
-        val btn = button(tag, if (selectedTagValue == tag) blue else Color.rgb(224, 240, 255), if (selectedTagValue == tag) Color.WHITE else blue).apply {
+        val btn = button(tag, if (selectedTagValue == tag) blue else Color.rgb(238, 244, 236), if (selectedTagValue == tag) Color.WHITE else blue).apply {
             setOnClickListener {
-                tagButtons.forEach { it.setBackgroundColor(Color.rgb(224, 240, 255)); it.setTextColor(blue) }
+                tagButtons.forEach { it.setBackgroundColor(Color.rgb(238, 244, 236)); it.setTextColor(blue) }
                 setBackgroundColor(blue)
                 setTextColor(Color.WHITE)
                 selectedTagValue = tag
@@ -320,10 +320,10 @@ internal fun MainActivity.productFormScreen() {
 
     val priceRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
     var isFromPrice = existing?.let { it.price.startsWith("From ") } ?: false
-    val fromBtn = button("From", if (isFromPrice) blue else Color.rgb(224, 240, 255), if (isFromPrice) Color.WHITE else blue).apply {
+    val fromBtn = button("From", if (isFromPrice) blue else Color.rgb(238, 244, 236), if (isFromPrice) Color.WHITE else blue).apply {
         setOnClickListener {
             isFromPrice = !isFromPrice
-            setBackgroundColor(if (isFromPrice) blue else Color.rgb(224, 240, 255))
+            setBackgroundColor(if (isFromPrice) blue else Color.rgb(238, 244, 236))
             setTextColor(if (isFromPrice) Color.WHITE else blue)
         }
     }
@@ -382,7 +382,7 @@ internal fun MainActivity.productFormScreen() {
         }
     }, marginParams(16, 0, 8, 24))
 
-    buttonRow.addView(button("Cancel", Color.rgb(224, 240, 255), blue).apply { setOnClickListener { editProductId = 0; showScreen("manageProducts") } }, marginParams(0, 0, 16, 24))
+    buttonRow.addView(button("Cancel", Color.rgb(238, 244, 236), blue).apply { setOnClickListener { editProductId = 0; showScreen("manageProducts") } }, marginParams(0, 0, 16, 24))
     content.addView(buttonRow)
 }
 

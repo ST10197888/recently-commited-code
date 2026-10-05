@@ -24,16 +24,30 @@ class LocalDb(context: Context) : SQLiteOpenHelper(context, "woodlands_mobile.db
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        listOf("products", "services", "testimonials", "faqs", "branches", "quote_requests", "contact_submissions", "users", "outbox")
-            .forEach { db.execSQL("DROP TABLE IF EXISTS $it") }
-        createTables(db)
+        if (oldVersion < 4) {
+            listOf("products", "services", "testimonials", "faqs", "branches", "quote_requests", "contact_submissions", "users", "outbox")
+                .forEach { db.execSQL("DROP TABLE IF EXISTS $it") }
+            createTables(db)
+        } else if (oldVersion < 5) {
+            db.execSQL("ALTER TABLE branches ADD COLUMN image TEXT DEFAULT ''")
+        }
     }
 
+    override fun onOpen(db: SQLiteDatabase) {
+        super.onOpen(db)
+        if (db.isReadOnly) return
+        val cols = mutableSetOf<String>()
+        db.rawQuery("PRAGMA table_info(branches)", null).use { c ->
+            while (c.moveToNext()) cols += c.getString(1)
+        }
+        if ("image" !in cols) db.execSQL("ALTER TABLE branches ADD COLUMN image TEXT DEFAULT ''")
+        if ("address" !in cols) db.execSQL("ALTER TABLE branches ADD COLUMN address TEXT DEFAULT ''")
+    }
     private fun createTables(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE products(id INTEGER PRIMARY KEY AUTOINCREMENT, remote_id TEXT UNIQUE, category TEXT, title TEXT, tagline TEXT, description TEXT, image TEXT, gallery TEXT, features TEXT, finishes TEXT, lead_time TEXT, tag TEXT, price TEXT)")
         db.execSQL("CREATE TABLE testimonials(id INTEGER PRIMARY KEY AUTOINCREMENT, remote_id TEXT UNIQUE, name TEXT, role TEXT, location TEXT, rating INTEGER, review TEXT, project TEXT)")
         db.execSQL("CREATE TABLE faqs(id INTEGER PRIMARY KEY AUTOINCREMENT, remote_id TEXT UNIQUE, category TEXT, question TEXT, answer TEXT)")
-        db.execSQL("CREATE TABLE branches(id INTEGER PRIMARY KEY AUTOINCREMENT, remote_id TEXT UNIQUE, name TEXT, region TEXT, phone TEXT, hours TEXT, notes TEXT)")
+        db.execSQL("CREATE TABLE branches(id INTEGER PRIMARY KEY AUTOINCREMENT, remote_id TEXT UNIQUE, name TEXT, region TEXT, phone TEXT, hours TEXT, notes TEXT, image TEXT DEFAULT '', address TEXT DEFAULT '')")
         db.execSQL("CREATE TABLE quote_requests(id INTEGER PRIMARY KEY AUTOINCREMENT, remote_id TEXT UNIQUE, quote_code TEXT, first_name TEXT, last_name TEXT, email TEXT, phone TEXT, branch TEXT, service TEXT, message TEXT, product_id TEXT, created_at INTEGER, status TEXT DEFAULT 'Pending', value TEXT)")
         db.execSQL("CREATE TABLE contact_submissions(id INTEGER PRIMARY KEY AUTOINCREMENT, first_name TEXT, last_name TEXT, email TEXT, phone TEXT, branch TEXT, service TEXT, message TEXT, created_at INTEGER)")
         db.execSQL("CREATE TABLE users(id TEXT PRIMARY KEY, full_name TEXT, email TEXT, phone TEXT, role TEXT, branch TEXT, active INTEGER DEFAULT 1, created_at INTEGER)")

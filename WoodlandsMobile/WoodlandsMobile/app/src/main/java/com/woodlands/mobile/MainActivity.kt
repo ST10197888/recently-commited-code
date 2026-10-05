@@ -15,6 +15,9 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import android.view.WindowInsets
+import android.view.WindowInsetsController
+
 
 class MainActivity : Activity() {
     internal lateinit var db: LocalDb
@@ -28,21 +31,26 @@ class MainActivity : Activity() {
     internal var galleryFilter = "All"
     internal var sidebarOpen = false
 
+    internal var topInset = 0
+    internal var bottomInset = 0
     // form-in-progress state used by the admin/manager management screens
     internal var editUserId: String? = null
+    internal var editBranchId: Int? = null
     internal var editProductId: Int = 0
     internal var editTestimonialId: Int? = null
     internal var editFaqId: Int? = null
 
-    internal val blue = Color.rgb(0, 71, 171)
-    internal val red = Color.rgb(220, 20, 60)
-    internal val navy = Color.rgb(0, 43, 107)
-    internal val cream = Color.rgb(247, 245, 240)
-    internal val text = Color.rgb(26, 26, 26)
-    internal val muted = Color.rgb(107, 104, 96)
-    internal val green = Color.rgb(21, 128, 61)
-    internal val greenBg = Color.rgb(240, 253, 244)
-    internal val lightBlueBg = Color.rgb(224, 234, 250)
+    internal val blue = Color.rgb(22, 50, 28)
+    internal val red = Color.rgb(128, 80, 37)
+    internal val navy = Color.rgb(29, 69, 37)
+    internal val cream = Color.rgb(251, 250, 247)
+    internal val text = Color.rgb(35, 33, 30)
+    internal val muted = Color.rgb(95, 98, 93)
+    internal val green = Color.rgb(46, 107, 51)
+    internal val greenBg = Color.rgb(238, 244, 236)
+    internal val lightBlueBg = Color.rgb(238, 244, 236)
+    internal val tan = Color.rgb(201, 160, 99)
+    internal val lineColor = Color.rgb(231, 227, 219)
 
     /** Screens that fall "under" the More tab so the bottom nav highlights the right icon. */
     private val moreFamily = setOf(
@@ -58,18 +66,52 @@ class MainActivity : Activity() {
         db = LocalDb.shared(this)
         session = Session(this)
         window.statusBarColor = blue
-        pageContainer = FrameLayout(this)
+        pageContainer = FrameLayout(this).apply { setBackgroundColor(Color.WHITE) }
+        pageContainer.setOnApplyWindowInsetsListener { _, insets ->
+            val bars = insets.getInsets(WindowInsets.Type.systemBars())
+            topInset = bars.top
+            bottomInset = bars.bottom
+            if (::root.isInitialized) applyEdgeGaps()
+            insets
+        }
         setContentView(pageContainer)
+        setStatusIcons(dark = true)
+        window.insetsController?.setSystemBarsAppearance(
+            WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
+            WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+        )
         showScreen("home")
     }
 
+    /** 15dp boundary between app content and system status and navigation bars. */
+    internal fun applyEdgeGaps() {
+        root.setPadding(0, topInset + dp(15), 0, bottomInset + dp(5))
+    }
+
+    internal fun setStatusIcons(dark: Boolean) {
+        window.insetsController?.setSystemBarsAppearance(
+            if (dark) WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS else 0,
+            WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+        )
+    }
     override fun onDestroy() { super.onDestroy() }
+
+    internal var imagePickCallback: ((Uri) -> Unit)? = null
+
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 7001 && resultCode == RESULT_OK) data?.data?.let { imagePickCallback?.invoke(it) }
+    }
 
     @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun onBackPressed() {
         if (sidebarOpen) { closeSidebar(); return }
         if (selectedProduct != null) { selectedProduct = null; showScreen("gallery"); return }
+        if (currentScreen == "branchForm") { showScreen("branches"); return }
         if (currentScreen in setOf("login", "register", "profile", "settings", "dashboard", "quotes", "users", "userForm", "manageProducts", "productForm", "manageTestimonials", "testimonialForm", "manageFaqs", "faqForm")) { showScreen("more"); return }
+        if (currentScreen in LEGAL_SCREENS) { showScreen("legal"); return }
+        if (currentScreen == "legal") { showScreen("more"); return }
         if (currentScreen !in listOf("home", "gallery", "quote", "branches", "more")) { showScreen("home"); return }
         if (currentScreen != "home") showScreen("home") else super.onBackPressed()
     }
@@ -80,7 +122,8 @@ class MainActivity : Activity() {
         if (sidebarOpen) closeSidebarImmediate()
         currentScreen = screen
         if (screen in listOf("home", "gallery", "branches", "more", "about", "testimonials", "faqs", "contact")) selectedProduct = null
-        root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(cream) }
+        root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.WHITE) }
+        applyEdgeGaps()
         pageContainer.removeAllViews()
         pageContainer.addView(root, FrameLayout.LayoutParams(-1, -1))
         root.addView(header())
@@ -93,17 +136,21 @@ class MainActivity : Activity() {
             "home" -> homeScreen()
             "gallery" -> galleryScreen()
             "quote" -> quoteScreen()
-            "branches" -> branchesScreen()
+            "branches" -> branchListScreen()
+            "branchForm" -> branchFormScreen()
             "more" -> moreScreen()
             "about" -> aboutScreen()
             "testimonials" -> testimonialsScreen()
             "faqs" -> faqScreen()
+            "legal" -> legalHubScreen()
+            "privacy", "terms", "refunds", "cookies" -> legalDocScreen(screen)
             "contact" -> contactScreen()
             "product" -> if (selectedProduct != null) productScreen(selectedProduct!!) else showScreen("home")
             "login" -> loginScreen()
             "register" -> registerScreen()
             "profile" -> profileScreen()
             "settings" -> settingsScreen()
+            "status" -> statusScreen()
             "dashboard" -> dashboardScreen()
             "quotes" -> quotesScreen()
             "users" -> usersScreen()
@@ -118,27 +165,34 @@ class MainActivity : Activity() {
         bottom.visibility = if (screen in listOf("home", "gallery", "quote", "branches", "more")) View.VISIBLE else View.GONE
     }
 
-    // ---------- chrome: header / sidebar trigger / bottom nav ----------
+    //  chrome: header / sidebar trigger / bottom nav 
 
     private fun header(): View {
-        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(6), dp(10), dp(12), dp(10)); setBackgroundColor(Color.WHITE); elevation = 3f }
-        val menu = TextView(this).apply { text = "☰"; textSize = 22f; setTextColor(blue); gravity = Gravity.CENTER; background = rippleBg(Color.WHITE, Color.TRANSPARENT, 21, 45); isClickable = true; setOnClickListener { openSidebar() } }
+        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(6), dp(8), dp(12), dp(8)); setBackgroundColor(Color.WHITE); elevation = 3f }
+        val menu = TextView(this).apply { text = "☰"; textSize = 22f; setTextColor(blue); gravity = Gravity.CENTER; background = rippleBg(Color.WHITE, lineColor, 12, 45); isClickable = true; setOnClickListener { openSidebar() } }
         bar.addView(menu, LinearLayout.LayoutParams(dp(42), dp(42)).apply { setMargins(dp(6), 0, 0, 0) })
-        val logo = tv("WOODLANDS\nDESIGNER BOARDS", 14, blue).apply { gravity = Gravity.CENTER; setTypeface(typeface, Typeface.BOLD); isClickable = true; setOnClickListener { showScreen("home") } }
-        bar.addView(logo, LinearLayout.LayoutParams(0, dp(44), 1f))
+        val logo = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; isClickable = true; setOnClickListener { showScreen("home") } }
+        logo.addView(ImageView(this).apply { setImageResource(R.drawable.app_logo_transparent); scaleType = ImageView.ScaleType.FIT_CENTER }, LinearLayout.LayoutParams(dp(36), dp(36)).apply { setMargins(0, 0, dp(8), 0) })
+        val logoText = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL }
+        logoText.addView(tv("Woodlands", 19, blue).apply { setTypeface(Typeface.SERIF, Typeface.BOLD); gravity = Gravity.CENTER })
+        logoText.addView(tv("DESIGNER BOARDS", 9, red).apply { setTypeface(typeface, Typeface.BOLD); letterSpacing = 0.2f; gravity = Gravity.CENTER })
+        logo.addView(logoText)
+        bar.addView(logo, LinearLayout.LayoutParams(0, dp(46), 1f))
         val me = currentUser()
         if (me != null) {
             val avatar = TextView(this).apply { text = initialsOf(me.fullName); textSize = 12f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; setTypeface(typeface, Typeface.BOLD); background = rippleBg(blue, Color.TRANSPARENT, 18, 60); isClickable = true; setOnClickListener { showScreen("profile") } }
             bar.addView(avatar, LinearLayout.LayoutParams(dp(36), dp(36)).apply { setMargins(0, 0, dp(8), 0) })
         }
-        val quote = button("Quote", red, Color.WHITE).apply { setOnClickListener { showScreen("quote") } }
-        bar.addView(quote, LinearLayout.LayoutParams(dp(82), dp(42)))
+        if (me == null || !Roles.isStaff(me.role)) {
+            val quote = button("Quote", red, Color.WHITE).apply { setOnClickListener { showScreen("quote") } }
+            bar.addView(quote, LinearLayout.LayoutParams(dp(82), dp(42)))
+        }
         return bar
     }
 
     private fun bottomNav(): LinearLayout {
         val nav = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setBackgroundColor(Color.WHITE); elevation = 8f }
-        val items = listOf("⌂" to "Home", "▦" to "Gallery", "✎" to "Quote", "⌖" to "Branches", "☰" to "More")
+        val items = listOf("⌂" to "Home", "▦" to "Gallery", (if (staffUser()) "▤" to "Quotes" else "✎" to "Quote"), "⌖" to "Branches", "☰" to "More")
         items.forEach { (icon, label) ->
             val isActive = active(label)
             val cell = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(0, dp(6), 0, dp(6)) }
@@ -149,49 +203,25 @@ class MainActivity : Activity() {
             cell.addView(pill)
             cell.background = rippleBg(Color.WHITE, Color.TRANSPARENT, 0, 35)
             cell.isClickable = true
-            cell.setOnClickListener { when (label) { "Home" -> showScreen("home"); "Gallery" -> showScreen("gallery"); "Quote" -> showScreen("quote"); "Branches" -> showScreen("branches"); else -> showScreen("more") } }
+            cell.setOnClickListener { when (label) { "Home" -> showScreen("home"); "Gallery" -> showScreen("gallery"); "Quote" -> showScreen("quote"); "Quotes" -> showScreen("quotes"); "Branches" -> showScreen("branches"); else -> showScreen("more") } }
             nav.addView(cell, LinearLayout.LayoutParams(0, dp(60), 1f))
         }
         return nav
     }
-    private fun active(label: String) = when (label) { "Home" -> currentScreen == "home"; "Gallery" -> currentScreen == "gallery" || currentScreen == "product"; "Quote" -> currentScreen == "quote"; "Branches" -> currentScreen == "branches"; else -> currentScreen in moreFamily }
-
-    // ---------- home ----------
+    private fun staffUser() = currentUser()?.let { Roles.isStaff(it.role) } == true
+    private fun active(label: String) = when (label) { "Home" -> currentScreen == "home"; "Gallery" -> currentScreen == "gallery" || currentScreen == "product"; "Quote" -> currentScreen == "quote"; "Quotes" -> currentScreen == "quotes"; "Branches" -> currentScreen == "branches" || currentScreen == "branchForm"; else -> currentScreen in moreFamily && !(staffUser() && currentScreen == "quotes") }
+    //  home 
 
     private fun homeScreen() {
-        hero()
-        sectionTitle("Explore our work", "Custom-built units and precision board services")
-        val cats = listOf("Kitchen Units", "TV Stands", "Built-In Cupboards", "Cutting & Edging")
-        val catImages = listOf(R.drawable.kitchen_12, R.drawable.tv_1, R.drawable.kitchen_6, R.drawable.kitchen_3)
-        val catRow = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        cats.forEachIndexed { i, c ->
-            val cardV = card().apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(8), dp(8), dp(8), dp(8)); setOnClickListener { galleryFilter = c; showScreen("gallery") } }
-            val img = ImageView(this).apply { setImageResource(catImages[i]); scaleType = ImageView.ScaleType.CENTER_CROP }
-            cardV.addView(img, LinearLayout.LayoutParams(dp(94), dp(78)))
-            val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0); gravity = Gravity.CENTER_VERTICAL }
-            box.addView(tv(c, 16, blue).apply { setTypeface(typeface, Typeface.BOLD) })
-            box.addView(tv(when (i) { 0 -> "Custom kitchens crafted in PG Bison melamine"; 1 -> "Wall-mounted and floor-standing entertainment units"; 2 -> "Floor-to-ceiling fitted wardrobes and storage"; else -> "CNC precision cutting and edge banding services" }, 12, muted))
-            cardV.addView(box, LinearLayout.LayoutParams(0, dp(78), 1f)); catRow.addView(cardV, marginParams(12, 6, 12, 6))
-        }
-        content.addView(catRow)
-        sectionTitle("Featured", "Popular and new products")
-        productList(db.loadProducts().filter { it.tag == "Popular" || it.tag == "New" }.take(4))
+        heroCarousel()
+        categoryGrid()
+        featuredStrip()
+        bisonBanner()
+        testimonialStrip()
         cta("Need something custom?", "All our products can be tailored to your space.", "Request a Quote") { showScreen("quote") }
-        footerNote()
+        homeFooter()
     }
-
-    private fun hero() {
-        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(18), dp(18), dp(18)); setBackgroundColor(blue) }
-        val image = ImageView(this).apply { setImageResource(R.drawable.kitchen_12); scaleType = ImageView.ScaleType.CENTER_CROP }
-        box.addView(image, LinearLayout.LayoutParams(-1, dp(190)))
-        box.addView(tv("BUILT TO LAST.", 27, Color.WHITE).apply { setTypeface(typeface, Typeface.BOLD); setPadding(0, dp(16), 0, 0) })
-        box.addView(tv("Designed to Impress.", 22, red).apply { setTypeface(typeface, Typeface.BOLD) })
-        box.addView(tv("Premium custom-built kitchen units, TV stands & built-in cupboards. PG Bison certified.", 13, Color.WHITE).apply { setPadding(0, dp(8), 0, dp(14)) })
-        box.addView(button("Get a Free Quote", red, Color.WHITE).apply { setOnClickListener { showScreen("quote") } })
-        content.addView(box)
-    }
-
-    // ---------- gallery / product / quote / branches ----------
+    //  gallery / product / quote / branches 
 
     private fun galleryScreen() {
         pageIntro("Services & Gallery", "Browse the catalogue and filter products by category.")
@@ -252,7 +282,7 @@ class MainActivity : Activity() {
     internal fun showPrivacyNotice() {
         android.app.AlertDialog.Builder(this)
             .setTitle("Privacy notice")
-            .setMessage("This prototype stores account, quote and contact details in the app's private database on this device. Requests are not sent to the website by this mobile app. Quote and contact forms use your name, email, branch, service and message; phone is optional. To delete your account and quote records on this device, use Profile > Delete my local account and quote data. For access, correction or deletion requests about the website or other systems, email info@woodlandsdb.co.za. That address must be confirmed by the business before launch.")
+            .setMessage("This prototype stores account, quote and contact details in the app's private database on this device and the shared online database. Requests are sent to the database then shared to the website by this mobile app. Quote and contact forms use your name, email, branch, service and message; phone number is optional. To delete your account and quote records on this device, use Profile > Delete my local account and quote data. For access, correction or deletion requests about the website or other systems, email info@woodlandsdb.co.za. That address must be confirmed by the business before launch.")
             .setPositiveButton("Close", null)
             .show()
     }
@@ -273,7 +303,7 @@ class MainActivity : Activity() {
         content.addView(tv("The current prototype intentionally keeps the branch phone number as 011 XXX XXXX, matching the website seed data.", 11, muted).apply { setPadding(dp(16), dp(10), dp(16), dp(20)) })
     }
 
-    // ---------- more (account hub) ----------
+    //  more (account hub) 
 
     private fun moreScreen() {
         pageIntro("More", "Your account and information")
@@ -293,14 +323,14 @@ class MainActivity : Activity() {
             cardV.addView(row)
             content.addView(cardV, marginParams(16, 6, 16, 10))
             if (Roles.isStaff(me.role)) content.addView(button("Dashboard", blue, Color.WHITE).apply { setOnClickListener { showScreen("dashboard") } }, marginParams(16, 6, 16, 6))
-            content.addView(outlineButton("My Quotes", blue).apply { setOnClickListener { showScreen("quotes") } }, marginParams(16, 0, 16, 6))
+            content.addView(outlineButton(if (Roles.isStaff(me.role)) "Quotes" else "My Quotes", blue).apply { setOnClickListener { showScreen("quotes") } }, marginParams(16, 0, 16, 6))
             content.addView(outlineButton("Profile", blue).apply { setOnClickListener { showScreen("profile") } }, marginParams(16, 0, 16, 6))
             content.addView(outlineButton("Settings", blue).apply { setOnClickListener { showScreen("settings") } }, marginParams(16, 0, 16, 6))
             content.addView(outlineButton("Logout", red).apply { setOnClickListener { session.clear(); toast("Signed out"); showScreen("home") } }, marginParams(16, 0, 16, 12))
         }
         sectionTitle("Information", "")
-        listOf("About Us" to "Learn about Woodlands Designer Boards", "Testimonials" to "Read customer feedback", "FAQs" to "Answers about products and services", "Contact Us" to "Send a message or start a quote").forEach { (title, sub) ->
-            val c = card().apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(14), dp(16), dp(14)); setOnClickListener { when (title) { "About Us" -> showScreen("about"); "Testimonials" -> showScreen("testimonials"); "FAQs" -> showScreen("faqs"); else -> showScreen("contact") } } }
+        listOf("About Us" to "Learn about Woodlands Designer Boards", "Testimonials" to "Read customer feedback", "FAQs" to "Answers about products and services", "Contact Us" to "Send a message or start a quote", "Legal Information" to "Privacy, terms, refunds and cookies", "Connection Status" to "Check the App's status connection").forEach { (title, sub) ->
+            val c = card().apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(14), dp(16), dp(14)); setOnClickListener { when (title) { "About Us" -> showScreen("about"); "Testimonials" -> showScreen("testimonials"); "FAQs" -> showScreen("faqs");"Legal Information" -> showScreen("legal"); "Connection Status" -> showScreen("status"); else -> showScreen("contact") } } }
             c.addView(tv(title, 17, blue).apply { setTypeface(typeface, Typeface.BOLD) }); c.addView(tv(sub, 12, muted).apply { setPadding(0, dp(4), 0, 0) }); content.addView(c, marginParams(16, 6, 16, 6))
         }
         footerNote()
@@ -313,17 +343,25 @@ class MainActivity : Activity() {
         showScreen(if (Roles.isStaff(user.role)) "dashboard" else "home")
     }
 
-    // ---------- about / testimonials / faqs / contact ----------
+    //  about / testimonials / faqs / contact 
 
     private fun aboutScreen() {
-        pageIntro("About Woodlands Designer Boards", "Custom cabinetry for homes, designers and contractors across Gauteng.")
+        pageIntro("About Woodlands Designer Boards", "Explore our custom furniture and cabinetry services for homes, designers, and contractors across Gauteng.")
         image(R.drawable.kitchen_12)
-        sectionTitle("Our Story", "")
-        para("Woodlands Designer Boards was founded with a single mission: to make high-quality, custom-built wooden furniture and cabinetry accessible to every South African household. Starting from a single workshop in Soweto, we've grown to three branches serving clients across the West Rand and Johannesburg South.")
-        para("Every product we build uses authentic PG Bison board materials — chipboard, MDF, melamine, and Supawood. Our team works with you from initial site measurement through final installation.")
+        sectionTitle("Custom Spaces Across Gauteng", "Our Story")
+        para("Woodlands Designer Boards creates custom furniture and cabinetry for residential and trade projects. We help clients plan their spaces, choose suitable materials, and shape a design around their needs.")
+        para("Our range includes board materials and made-to-measure units. Get in touch to discuss your project, material options, measurements, and installation requirements.")
+        featureCard("Materials for your project", "Ask us about available board and finish options.")
         sectionTitle("Why Choose Us", "")
-        listOf("🏆 PG Bison materials" to "Board and finish options for custom cabinetry.", "🔧 CNC cutting" to "Precision cutting and edge banding services.", "👥 Project types" to "Options for homes, designers and contractors.", "📍 Gauteng service" to "Soweto, Roodepoort and Randfontein areas.").forEach { (a, b) -> featureCard(a, b) }
-        cta("Ready to start?", "Let's build something around your space.", "Contact Us") { showScreen("contact") }
+        featureCard("PG Bison Certified", "Authorised partner of SA's leading board manufacturer — every piece uses genuine PG Bison materials.")
+        featureCard("CNC Precision", "Tolerances of ±0.5mm. What you design is exactly what gets built.")
+        featureCard("All Client Types", "Homeowners, interior designers, and building contractors — we serve every scale of project.")
+        featureCard("3 Gauteng Branches", "Soweto, Roodepoort, and Randfontein — always close to your project site.")
+        sectionTitle("Our Three Branches", "")
+        featureCard("⌖ Soweto Branch", "Serving customers in the Soweto area.")
+        featureCard("⌖ Roodepoort Branch", "Serving customers in the Roodepoort area.")
+        featureCard("⌖ Randfontein Branch", "Serving customers in the Randfontein area.")
+        cta("Ready to Work With Us?", "Get a free quote — we'll measure, design, and install everything.", "Get a Free Quote →") { showScreen("quote") }
     }
 
     private fun testimonialsScreen() {
@@ -378,7 +416,7 @@ class MainActivity : Activity() {
         }, marginParams(16, 12, 16, 20))
     }
 
-    // ---------- shared UI building blocks ----------
+    //  shared UI building blocks 
 
     private fun productList(products: List<Product>) {
         val row = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -392,32 +430,33 @@ class MainActivity : Activity() {
     internal fun testimonialCard(t: Testimonial) { val c = card().apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(14), dp(14), dp(14)) }; c.addView(tv("★★★★★".replaceRange(t.rating, 5, ""), 16, red)); c.addView(tv("\"${t.review}\"", 13, muted).apply { setPadding(0, dp(7), 0, dp(9)) }); c.addView(tv(t.name, 13, blue).apply { setTypeface(typeface, Typeface.BOLD) }); c.addView(tv("${t.role} · ${t.location}", 11, muted)); c.addView(chip(t.project)); content.addView(c, marginParams(12, 5, 12, 5)) }
     internal fun featureCard(title: String, desc: String) { val c = card().apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(14), dp(14), dp(14)) }; c.addView(tv(title, 15, blue).apply { setTypeface(typeface, Typeface.BOLD) }); c.addView(tv(desc, 12, muted).apply { setPadding(0, dp(4), 0, 0) }); content.addView(c, marginParams(12, 5, 12, 5)) }
     internal fun statsStrip() { val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(8), dp(10), dp(8), dp(10)) }; listOf("15+" to "Years", "500+" to "Projects", "3" to "Branches", "100%" to "PG Bison").forEach { (a, b) -> val c = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }; c.addView(tv(a, 20, red).apply { setTypeface(typeface, Typeface.BOLD); gravity = Gravity.CENTER }); c.addView(tv(b, 10, muted).apply { gravity = Gravity.CENTER }); row.addView(c, LinearLayout.LayoutParams(0, dp(70), 1f)) }; content.addView(row) }
-    internal fun sectionTitle(title: String, sub: String) { val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(18), dp(16), dp(8)) }; box.addView(tv(title, 20, blue).apply { setTypeface(typeface, Typeface.BOLD) }); if (sub.isNotBlank()) box.addView(tv(sub, 12, muted).apply { setPadding(0, dp(3), 0, 0) }); content.addView(box) }
-    internal fun pageIntro(title: String, sub: String) { val b = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(18), dp(16), dp(18)); setBackgroundColor(blue) }; b.addView(tv(title, 25, Color.WHITE).apply { setTypeface(typeface, Typeface.BOLD) }); b.addView(tv(sub, 12, Color.WHITE).apply { setPadding(0, dp(5), 0, 0) }); content.addView(b) }
+    internal fun sectionTitle(title: String, sub: String) { val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(22), dp(16), dp(8)) }; box.addView(tv(title, 22, blue).apply { setTypeface(Typeface.SERIF, Typeface.BOLD) }); if (sub.isNotBlank()) box.addView(tv(sub, 12, muted).apply { setPadding(0, dp(3), 0, 0) }); content.addView(box) }
+    internal fun pageIntro(title: String, sub: String) { val b = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(22), dp(16), dp(20)); setBackgroundColor(blue) }; b.addView(tv(title, 26, Color.WHITE).apply { setTypeface(Typeface.SERIF, Typeface.BOLD) }); if (sub.isNotBlank()) b.addView(tv(sub, 12, Color.rgb(224, 231, 223)).apply { setPadding(0, dp(5), 0, 0) }); content.addView(b); content.addView(View(this).apply { setBackgroundColor(tan) }, LinearLayout.LayoutParams(-1, dp(3))) }
     internal fun para(s: String) { content.addView(tv(s, 13, muted).apply { setPadding(dp(16), dp(4), dp(16), dp(7)) }) }
     internal fun bullet(s: String) { content.addView(tv("✓  $s", 13, muted).apply { setPadding(dp(20), dp(4), dp(16), dp(4)) }) }
     internal fun infoRow(a: String, b: String) { val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(16), dp(4), dp(16), dp(4)) }; row.addView(tv(a, 12, muted), LinearLayout.LayoutParams(0, dp(28), 1f)); row.addView(tv(b, 13, blue).apply { setTypeface(typeface, Typeface.BOLD); gravity = Gravity.END }, LinearLayout.LayoutParams(0, dp(28), 1f)); content.addView(row) }
-    internal fun cta(title: String, sub: String, label: String, onClick: () -> Unit) { val c = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(18), dp(18), dp(18)); setBackgroundColor(blue) }; c.addView(tv(title, 19, Color.WHITE).apply { setTypeface(typeface, Typeface.BOLD); gravity = Gravity.CENTER }); c.addView(tv(sub, 12, Color.WHITE).apply { gravity = Gravity.CENTER; setPadding(0, dp(4), 0, dp(10)) }); c.addView(button(label, red, Color.WHITE).apply { setOnClickListener { onClick() } }); content.addView(c, marginParams(12, 16, 12, 16)) }
+    internal fun cta(title: String, sub: String, label: String, onClick: () -> Unit) { val c = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(22), dp(20), dp(20)); background = bg(blue, Color.TRANSPARENT, 16) }; c.addView(tv(title, 20, Color.WHITE).apply { setTypeface(Typeface.SERIF, Typeface.BOLD); gravity = Gravity.CENTER }); c.addView(tv(sub, 12, Color.rgb(224, 231, 223)).apply { gravity = Gravity.CENTER; setPadding(0, dp(4), 0, dp(12)) }); c.addView(button(label, tan, blue).apply { setOnClickListener { onClick() } }); content.addView(c, marginParams(12, 16, 12, 16)) }
     internal fun footerNote() { content.addView(tv("WOODLANDS DESIGNER BOARDS\nPremium custom-built units using PG Bison materials.\nSoweto · Roodepoort · Randfontein", 11, muted).apply { gravity = Gravity.CENTER; setPadding(dp(16), dp(16), dp(16), dp(24)) }) }
     internal fun image(res: Int) { content.addView(ImageView(this).apply { setImageResource(res); scaleType = ImageView.ScaleType.CENTER_CROP }, sizeMarginParams(-1, dp(180), 16, 10, 16, 10)) }
 
     internal fun horizontalChips(items: List<String>, selected: String, onPick: (String) -> Unit): HorizontalScrollView { val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(12), dp(5), dp(12), dp(8)) }; items.forEach { i -> row.addView(chip(i, i == selected).apply { setOnClickListener { onPick(i) } }, marginParams(0, 0, 7, 0)) }; return HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(row) } }
     internal fun chip(label: String, selected: Boolean = true): TextView = tv(label, 11, if (selected) Color.WHITE else blue).apply { setPadding(dp(12), dp(7), dp(12), dp(7)); background = rippleBg(if (selected) blue else Color.WHITE, if (selected) blue else Color.LTGRAY, 18, if (selected) 70 else 35) }
     internal fun chip(label: String): TextView = chip(label, false)
-    internal fun card(): LinearLayout = LinearLayout(this).apply { background = rippleBg(Color.WHITE, Color.rgb(225, 230, 238), 12, 35); elevation = 2f }
-    internal fun button(label: String, bgColor: Int, fg: Int): Button = Button(this).apply { text = label; textSize = 12f; setTextColor(fg); setAllCaps(false); background = rippleBg(bgColor, bgColor, 10, 100); minHeight = 0; minimumHeight = 0; stateListAnimator = null }
-    internal fun outlineButton(label: String, color: Int): Button = Button(this).apply { text = label; textSize = 12f; setTextColor(color); setAllCaps(false); background = rippleBg(Color.WHITE, color, 10, 40); minHeight = 0; minimumHeight = 0; stateListAnimator = null }
+    internal fun card(): LinearLayout = LinearLayout(this).apply { background = rippleBg(Color.WHITE, lineColor, 16, 30); elevation = 3f }
+    internal fun button(label: String, bgColor: Int, fg: Int): Button = Button(this).apply { text = label; textSize = 13f; setTextColor(fg); setAllCaps(false); setTypeface(typeface, Typeface.BOLD); background = rippleBg(bgColor, bgColor, 10, 100); minHeight = dp(44); minimumHeight = dp(44); stateListAnimator = null }
+    internal fun outlineButton(label: String, color: Int): Button = Button(this).apply { text = label; textSize = 13f; setTextColor(color); setAllCaps(false); setTypeface(typeface, Typeface.BOLD); background = rippleBg(Color.WHITE, color, 10, 40); minHeight = dp(44); minimumHeight = dp(44); stateListAnimator = null }
     internal fun tv(s: String, size: Float, color: Int) = TextView(this).apply { text = s; textSize = size; setTextColor(color); includeFontPadding = true }
     internal fun tv(s: String, size: Int, color: Int) = tv(s, size.toFloat(), color)
-    internal fun field(label: String, hint: String, multi: Boolean = false, required: Boolean = true): EditText = EditText(this).apply { this.hint = if (required) "$label *" else "$label (optional)"; textSize = 13f; setTextColor(this@MainActivity.text); setHintTextColor(muted); background = bg(Color.WHITE, Color.rgb(205, 212, 222), 8); setPadding(dp(12), dp(9), dp(12), dp(9)); if (multi) { minLines = 4; gravity = Gravity.TOP; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE } else { inputType = InputType.TYPE_CLASS_TEXT } }
+    internal fun field(label: String, hint: String, multi: Boolean = false, required: Boolean = true): EditText = EditText(this).apply { this.hint = if (required) "$label *" else "$label (optional)"; textSize = 14f; setTextColor(this@MainActivity.text); setHintTextColor(muted); background = bg(Color.WHITE, Color.rgb(201, 201, 193), 10); setPadding(dp(12), dp(11), dp(12), dp(11)); if (multi) { minLines = 4; gravity = Gravity.TOP; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE } else { inputType = InputType.TYPE_CLASS_TEXT } }
     internal fun passwordField(label: String): EditText = field(label, label).apply { inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD }
     internal fun spinnerField(label: String, items: List<String>, preselect: String? = null): LinearLayout {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        box.addView(tv("$label *", 11, blue).apply { setPadding(dp(2), 0, dp(2), dp(4)) })
-        val spinner = Spinner(this).apply { adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, items); tag = "spinner:$label"; background = bg(Color.WHITE, Color.rgb(205, 212, 222), 8); if (preselect != null) { val idx = items.indexOf(preselect); if (idx >= 0) setSelection(idx) } }
+        box.addView(tv("$label *", 11, text).apply { setPadding(dp(2), 0, dp(2), dp(4)) })
+        val spinner = Spinner(this).apply { adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, items); tag = "spinner:$label"; background = bg(Color.WHITE, Color.rgb(201, 201, 193), 10); if (preselect != null) { val idx = items.indexOf(preselect); if (idx >= 0) setSelection(idx) } }
         box.addView(spinner, LinearLayout.LayoutParams(-1, dp(48)))
         return box
     }
+
     internal fun spinnerValue(container: ViewGroup): String { val s = container.getChildAt(1) as Spinner; return s.selectedItem?.toString().orEmpty() }
     internal fun confirmation(title: String, msg: String) { content.removeAllViews(); pageIntro(title, msg); content.addView(button("Back to Home", red, Color.WHITE).apply { setOnClickListener { showScreen("home") } }, marginParams(16, 20, 16, 10)); content.addView(button("Browse Gallery", blue, Color.WHITE).apply { setOnClickListener { showScreen("gallery") } }, marginParams(16, 6, 16, 10)); bottom.visibility = View.GONE }
     internal fun toast(s: String) { Toast.makeText(this, s, Toast.LENGTH_SHORT).show() }

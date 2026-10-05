@@ -10,11 +10,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicBoolean
+import android.util.Base64
+import java.io.File
 
 object SyncManager {
     private const val TAG = "WoodlandsSync"
@@ -110,6 +114,60 @@ object SyncManager {
         }
     }
 
+    fun isOnline(): Boolean {
+        if (!ready) return false
+        val cm = appContext.getSystemService(ConnectivityManager::class.java)
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+    internal fun checkConnection(syncAfter: Boolean, onResult: (ConnectionStatus) -> Unit) {
+        scope.launch {
+            val online = isOnline()
+            val status = if (!online) {
+                ConnectionStatus(false, false, "No internet connection on this device.")
+            } else {
+                when (val r = ApiClient.get("/api/branches")) {
+                    is ApiResult.Success -> ConnectionStatus(true, true, "The app can reach the Woodlands database.")
+                    is ApiResult.Failure -> ConnectionStatus(true, false, "The server returned an error (${r.code}).")
+                    is ApiResult.Offline -> ConnectionStatus(true, false, "The Woodlands server can't be reached.")
+                }
+            }
+            mainHandler.post { onResult(status) }
+            if (syncAfter && status.database) syncAll()
+        }
+    }
+    internal fun checkApi(onResult: (List<EndpointStatus>) -> Unit) {
+        scope.launch {
+            val targets = listOf(
+                "Products" to "/api/products",
+                "Branches" to "/api/branches",
+                "FAQs" to "/api/faqs",
+                "Testimonials" to "/api/testimonials",
+                "Quote requests" to "/api/quote-requests?email=status-check",
+                "Users" to "/api/app-users?email=status-check"
+            )
+            val out = mutableListOf<EndpointStatus>()
+            var serverDown = !isOnline()
+            for ((name, path) in targets) {
+                if (serverDown) {
+                    out += EndpointStatus(name, false, false, "Offline")
+                    continue
+                }
+                when (val r = ApiClient.get(path)) {
+                    is ApiResult.Success -> out += EndpointStatus(name, true, true, "Online")
+                    is ApiResult.Failure -> out += EndpointStatus(name, false, true, "Error ${r.code}")
+                    is ApiResult.Offline -> {
+                        serverDown = true
+                        out += EndpointStatus(name, false, false, "Offline")
+                    }
+                }
+            }
+            mainHandler.post { onResult(out) }
+        }
+    }
+
     private fun runSync() {
         val db = LocalDb.shared(appContext)
         val firstLoad = db.loadBranches().isEmpty() && db.loadProducts().isEmpty()
@@ -164,12 +222,28 @@ object SyncManager {
 
     private fun execute(op: PendingOp): ApiResult = when (op.kind) {
         OP_PROMOTE -> promote(op)
+        OP_BRANCH_IMAGE -> uploadBranchImage(op)
         else -> when (op.method) {
             "POST" -> ApiClient.post(op.path, op.body ?: "{}")
             "PUT" -> ApiClient.put(op.path, op.body ?: "{}")
             "DELETE" -> ApiClient.delete(op.path)
             else -> ApiClient.get(op.path)
         }
+    }
+
+    private fun uploadBranchImage(op: PendingOp): ApiResult {
+        val file = File(op.body ?: "")
+        if (!file.exists()) return ApiResult.Failure(404, "Image file is missing")
+        val payload = JSONObject()
+            .put("contentType", "image/jpeg")
+            .put("data", Base64.encodeToString(file.readBytes(), Base64.NO_WRAP))
+        val result = ApiClient.put(op.path, payload.toString())
+        if (result is ApiResult.Success) {
+            val url = try { JSONObject(result.body).optString("image") } catch (e: JSONException) { "" }
+            val remoteId = op.path.removePrefix("/api/branches/").removeSuffix("/image")
+            if (url.isNotBlank()) LocalDb.shared(appContext).setBranchImage(remoteId, url)
+        }
+        return result
     }
 
     private fun promote(op: PendingOp): ApiResult {
@@ -263,9 +337,11 @@ object SyncManager {
                 put("remote_id", o.optString("id"))
                 put("name", o.str("name") ?: "")
                 put("region", o.str("region") ?: "")
+        if (o.has("address") && !o.isNull("address")) put("address", o.optString("address"))
                 put("phone", o.str("phone") ?: "")
                 put("hours", o.str("hours") ?: "")
                 put("notes", o.str("notes") ?: "")
+                put("image", o.str("image") ?: "")
             }
         }
         db.reconcile("branches", rows)

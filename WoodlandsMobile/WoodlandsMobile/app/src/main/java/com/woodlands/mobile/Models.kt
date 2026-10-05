@@ -3,7 +3,8 @@ package com.woodlands.mobile
 data class Product(val id:Int,val category:String,val title:String,val tagline:String,val description:String,val image:String,val gallery:List<String>,val features:List<String>,val finishes:List<String>,val lead:String,val tag:String?,val price:String)
 data class Testimonial(val id:Int,val name:String,val role:String,val location:String,val rating:Int,val review:String,val project:String)
 data class Faq(val id:Int,val category:String,val question:String,val answer:String)
-data class Branch(val id:Int,val name:String,val region:String,val phone:String,val hours:String,val notes:String)
+
+data class Branch(val id:Int,val name:String,val region:String,val phone:String,val hours:String,val notes:String,val image:String="",val address:String="")
 
 data class AppUser(
     val id:String,

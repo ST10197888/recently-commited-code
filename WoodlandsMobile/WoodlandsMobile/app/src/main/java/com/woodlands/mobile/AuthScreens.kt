@@ -121,7 +121,11 @@ internal fun MainActivity.settingsScreen() {
     }
     content.addView(accountCard, marginParams(16, 6, 16, 14))
 
-    sectionTitle("Data & security", "")
+//  Removed from only affecting logged in users
+//    connectionsSection()
+//    apiStatusSection()
+
+    sectionTitle("Data and security", "")
     listOf(
         "Synced with Woodlands" to "Catalogue, quotes and account details are loaded from the Woodlands service whenever you're online.",
         "Offline copy" to "A copy is kept on this device so the app loads quickly and keeps working without a connection.",

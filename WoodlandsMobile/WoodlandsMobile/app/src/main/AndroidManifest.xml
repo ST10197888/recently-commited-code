@@ -4,11 +4,15 @@
     <application
         android:name=".WoodlandsApp"
         android:theme="@style/Theme.Woodlands"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:allowBackup="false"
         android:usesCleartextTraffic="true"
         android:supportsRtl="true">
-        <activity android:name=".MainActivity" android:screenOrientation="portrait" android:exported="true">
+        <activity
+            android:name=".MainActivity"
+            android:screenOrientation="portrait"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

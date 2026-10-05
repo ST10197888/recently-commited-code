@@ -5,6 +5,7 @@ import android.graphics.Typeface
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -12,14 +13,10 @@ import android.widget.TextView
 private const val SIDEBAR_TAG = "woodlands_sidebar_panel"
 private const val SCRIM_TAG = "woodlands_sidebar_scrim"
 
-/**
- * A genuine slide-in navigation drawer (not a full screen): a translucent scrim plus a panel
- * that animates in from the left, mirroring the website's mobile "hamburger" menu — site nav
- * links up top, account actions at the bottom.
- */
 internal fun MainActivity.openSidebar() {
     if (sidebarOpen) return
     sidebarOpen = true
+    setStatusIcons(dark = false)
     val panelWidth = (resources.displayMetrics.widthPixels * 0.82f).toInt().coerceAtMost(dp(300))
 
     val scrim = View(this).apply {
@@ -39,6 +36,7 @@ internal fun MainActivity.openSidebar() {
 internal fun MainActivity.closeSidebar() {
     if (!sidebarOpen) return
     sidebarOpen = false
+    setStatusIcons(dark = true)
     val panel = pageContainer.findViewWithTag<View>(SIDEBAR_TAG)
     val scrim = pageContainer.findViewWithTag<View>(SCRIM_TAG)
     val width = panel?.width ?: dp(280)
@@ -56,21 +54,27 @@ internal fun MainActivity.closeSidebarImmediate() {
 private fun MainActivity.buildSidebarPanel(width: Int): LinearLayout {
     val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.WHITE); elevation = 16f }
 
-    val headerBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(20), dp(18), dp(16)); setBackgroundColor(blue) }
+    val headerBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), topInset + dp(15), dp(18), dp(16)); setBackgroundColor(blue) }
     val closeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }
     closeRow.addView(TextView(this).apply { text = "✕"; textSize = 16f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; background = rippleBg(blue, Color.TRANSPARENT, 16, 60); isClickable = true; setOnClickListener { closeSidebar() } }, LinearLayout.LayoutParams(dp(32), dp(32)))
     headerBox.addView(closeRow)
-    headerBox.addView(tv("WOODLANDS", 18, Color.WHITE).apply { setTypeface(typeface, Typeface.BOLD); setPadding(0, dp(6), 0, 0) })
-    headerBox.addView(tv("DESIGNER BOARDS", 12, Color.rgb(200, 215, 240)))
+
+    val brandRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(6), 0, 0) }
+    brandRow.addView(ImageView(this).apply { setImageResource(R.drawable.app_logo_transparent); scaleType = ImageView.ScaleType.FIT_CENTER }, LinearLayout.LayoutParams(dp(64), dp(64)))
+    val brandText = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0) }
+    brandText.addView(tv("WOODLANDS", 18, Color.WHITE).apply { setTypeface(typeface, Typeface.BOLD) })
+    brandText.addView(tv("DESIGNER BOARDS", 12, Color.rgb(205, 218, 203)))
     val me = currentUser()
     if (me != null) {
-        headerBox.addView(tv(me.fullName, 13, Color.WHITE).apply { setPadding(0, dp(12), 0, 0); setTypeface(typeface, Typeface.BOLD) })
-        headerBox.addView(tv(Roles.label(me.role), 11, Color.rgb(200, 215, 240)))
+        brandText.addView(tv(me.fullName, 13, Color.WHITE).apply { setPadding(0, dp(10), 0, 0); setTypeface(typeface, Typeface.BOLD) })
+        brandText.addView(tv(Roles.label(me.role), 11, Color.rgb(205, 218, 203)))
     }
+    brandRow.addView(brandText, LinearLayout.LayoutParams(0, -2, 1f))
+    headerBox.addView(brandRow)
     panel.addView(headerBox)
 
     val scroll = ScrollView(this)
-    val links = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(10), dp(8), dp(10)) }
+    val links = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(10), dp(8), bottomInset + dp(15)) }
 
     fun navItem(icon: String, label: String, screen: String) {
         val active = currentScreen == screen
@@ -87,15 +91,15 @@ private fun MainActivity.buildSidebarPanel(width: Int): LinearLayout {
     navItem("ℹ", "About Us", "about")
     navItem("★", "Testimonials", "testimonials")
     navItem("❔", "FAQs", "faqs")
-    navItem("✉", "Contact", "contact")
+    if (me == null || !Roles.isStaff(me.role)) navItem("✉", "Contact", "contact")
     navItem("⌖", "Branches", "branches")
-    navItem("✎", "Request a Quote", "quote")
+    if (me == null || !Roles.isStaff(me.role)) navItem("✎", "Request a Quote", "quote")
 
     links.addView(View(this).apply { setBackgroundColor(Color.rgb(230, 230, 230)) }, LinearLayout.LayoutParams(-1, dp(1)).apply { setMargins(dp(14), dp(10), dp(14), dp(10)) })
 
     if (me != null) {
         if (Roles.isStaff(me.role)) navItem("📊", "Dashboard", "dashboard")
-        navItem("🧾", "My Quotes", "quotes")
+        navItem("🧾", if (Roles.isStaff(me.role)) "Quotes" else "My Quotes", "quotes")
         navItem("👤", "Profile", "profile")
         navItem("⚙", "Settings", "settings")
         val logout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(14), dp(13), dp(14), dp(13)); isClickable = true; background = rippleBg(Color.WHITE, Color.TRANSPARENT, 10, 40) }

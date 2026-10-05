@@ -16,6 +16,8 @@ import kotlin.random.Random
 internal const val OP_HTTP = "http"
 internal const val OP_PROMOTE = "promote_user"
 
+internal const val OP_BRANCH_IMAGE = "branch_image"
+
 internal data class PendingOp(
     val id: Long,
     val kind: String,
@@ -242,9 +244,37 @@ internal fun LocalDb.loadFaqs(): List<Faq> {
 internal fun LocalDb.loadBranches(): List<Branch> {
     val out = mutableListOf<Branch>()
     readableDatabase.query("branches", null, null, null, null, null, "name").use { c ->
-        while (c.moveToNext()) out += Branch(c.intOf("id"), c.str("name"), c.str("region"), c.str("phone"), c.str("hours"), c.str("notes"))
+        while (c.moveToNext()) out += Branch(c.intOf("id"), c.str("name"), c.str("region"), c.str("phone"), c.str("hours"), c.str("notes"), c.str("image"), c.str("address"))
     }
     return out
+}
+
+internal fun LocalDb.saveBranch(b: Branch) {
+    val isLocalImage = b.image.startsWith("local:")
+    val v = ContentValues().apply {
+        put("region", b.region)
+        put("address", b.address)
+        put("phone", b.phone)
+        put("hours", b.hours)
+        put("notes", b.notes)
+        put("image", b.image)
+    }
+    val body = JSONObject()
+        .put("region", b.region)
+        .put("address", b.address)
+        .put("phone", b.phone)
+        .put("hours", b.hours)
+        .put("notes", b.notes)
+    if (!isLocalImage) body.put("image", b.image)
+    saveSynced("branches", b.id.toLong(), false, v, "/api/branches", body.toString())
+    if (isLocalImage) {
+        val remote = remoteIdOf("branches", b.id.toLong())
+        if (remote != null) enqueue("PUT", "/api/branches/$remote/image", b.image.removePrefix("local:"), null, OP_BRANCH_IMAGE)
+    }
+}
+
+internal fun LocalDb.setBranchImage(remoteId: String, url: String) {
+    writableDatabase.update("branches", ContentValues().apply { put("image", url) }, "remote_id=?", arrayOf(remoteId))
 }
 
 private fun Cursor.toUser(): AppUser = AppUser(

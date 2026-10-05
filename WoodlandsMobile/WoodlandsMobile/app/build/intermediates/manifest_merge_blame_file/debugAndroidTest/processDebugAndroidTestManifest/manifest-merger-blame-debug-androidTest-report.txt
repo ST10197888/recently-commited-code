@@ -3,24 +3,24 @@
 3    package="com.woodlands.mobile.test" >
 4
 5    <uses-sdk
-5-->C:\Users\kenne\Documents\GitHub\recently-commited-code\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest10439439861709051623.xml:5:5-74
+5-->C:\Users\kenne\Documents\GitHub\Work-Integrated-Learning\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest13862840270015373859.xml:5:5-74
 6        android:minSdkVersion="35"
-6-->C:\Users\kenne\Documents\GitHub\recently-commited-code\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest10439439861709051623.xml:5:15-41
+6-->C:\Users\kenne\Documents\GitHub\Work-Integrated-Learning\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest13862840270015373859.xml:5:15-41
 7        android:targetSdkVersion="35" />
-7-->C:\Users\kenne\Documents\GitHub\recently-commited-code\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest10439439861709051623.xml:5:42-71
+7-->C:\Users\kenne\Documents\GitHub\Work-Integrated-Learning\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest13862840270015373859.xml:5:42-71
 8
 9    <instrumentation
-9-->C:\Users\kenne\Documents\GitHub\recently-commited-code\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest10439439861709051623.xml:11:5-15:70
+9-->C:\Users\kenne\Documents\GitHub\Work-Integrated-Learning\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest13862840270015373859.xml:11:5-15:70
 10        android:name="androidx.test.runner.AndroidJUnitRunner"
-10-->C:\Users\kenne\Documents\GitHub\recently-commited-code\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest10439439861709051623.xml:11:22-76
+10-->C:\Users\kenne\Documents\GitHub\Work-Integrated-Learning\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest13862840270015373859.xml:11:22-76
 11        android:functionalTest="false"
-11-->C:\Users\kenne\Documents\GitHub\recently-commited-code\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest10439439861709051623.xml:14:22-52
+11-->C:\Users\kenne\Documents\GitHub\Work-Integrated-Learning\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest13862840270015373859.xml:14:22-52
 12        android:handleProfiling="false"
-12-->C:\Users\kenne\Documents\GitHub\recently-commited-code\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest10439439861709051623.xml:13:22-53
+12-->C:\Users\kenne\Documents\GitHub\Work-Integrated-Learning\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest13862840270015373859.xml:13:22-53
 13        android:label="Tests for com.woodlands.mobile"
-13-->C:\Users\kenne\Documents\GitHub\recently-commited-code\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest10439439861709051623.xml:15:22-68
+13-->C:\Users\kenne\Documents\GitHub\Work-Integrated-Learning\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest13862840270015373859.xml:15:22-68
 14        android:targetPackage="com.woodlands.mobile" />
-14-->C:\Users\kenne\Documents\GitHub\recently-commited-code\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest10439439861709051623.xml:12:22-66
+14-->C:\Users\kenne\Documents\GitHub\Work-Integrated-Learning\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest13862840270015373859.xml:12:22-66
 15
 16    <uses-permission android:name="android.permission.REORDER_TASKS" />
 16-->[androidx.test:core:1.6.1] C:\Users\kenne\.gradle\caches\8.9\transforms\d0f421d03e9905eb488ba77f569b1264\transformed\core-1.6.1\AndroidManifest.xml:24:5-72
@@ -40,12 +40,12 @@
 22    </queries>
 23
 24    <application
-24-->C:\Users\kenne\Documents\GitHub\recently-commited-code\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest10439439861709051623.xml:7:5-9:19
+24-->C:\Users\kenne\Documents\GitHub\Work-Integrated-Learning\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest13862840270015373859.xml:7:5-9:19
 25        android:debuggable="true"
 26        android:extractNativeLibs="false" >
 27        <uses-library android:name="android.test.runner" />
-27-->C:\Users\kenne\Documents\GitHub\recently-commited-code\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest10439439861709051623.xml:8:9-60
-27-->C:\Users\kenne\Documents\GitHub\recently-commited-code\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest10439439861709051623.xml:8:23-57
+27-->C:\Users\kenne\Documents\GitHub\Work-Integrated-Learning\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest13862840270015373859.xml:8:9-60
+27-->C:\Users\kenne\Documents\GitHub\Work-Integrated-Learning\WoodlandsMobile\WoodlandsMobile\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest13862840270015373859.xml:8:23-57
 28
 29        <activity
 29-->[androidx.test:core:1.6.1] C:\Users\kenne\.gradle\caches\8.9\transforms\d0f421d03e9905eb488ba77f569b1264\transformed\core-1.6.1\AndroidManifest.xml:27:9-34:20

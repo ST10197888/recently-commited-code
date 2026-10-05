@@ -7,7 +7,7 @@ const app = express();
 
 // Middleware
 app.use(cors()); // Allows your C# app to make requests
-app.use(express.json()); // Parses incoming JSON data
+app.use(express.json({ limit: '15mb' }));// Parses incoming JSON data
 
 // Initialize Supabase
 const clientOptions = {
@@ -221,6 +221,25 @@ app.delete('/api/branches/:id', async (req, res) => {
     res.json({ message: 'Branch deleted', data });
 });
 
+app.put('/api/branches/:id/image', async (req, res) => {
+    try {
+        const { data, contentType } = req.body || {};
+        if (!data) return res.status(400).json({ error: 'Image data is required' });
+        const buffer = Buffer.from(data, 'base64');
+        if (buffer.length === 0 || buffer.length > 8 * 1024 * 1024) return res.status(400).json({ error: 'Image must be under 8 MB' });
+        const type = contentType === 'image/png' ? 'image/png' : 'image/jpeg';
+        const ext = type === 'image/png' ? 'png' : 'jpg';
+        const path = `branches/${req.params.id}-${Date.now()}.${ext}`;
+        const up = await supabase.storage.from('woodlands-assets').upload(path, buffer, { contentType: type, upsert: true });
+        if (up.error) return res.status(500).json({ error: up.error.message });
+        const { data: pub } = supabase.storage.from('woodlands-assets').getPublicUrl(path);
+        const { error } = await supabase.from('branches').update({ image: pub.publicUrl }).eq('id', req.params.id);
+        if (error) return res.status(500).json({ error: error.message });
+        res.json({ image: pub.publicUrl });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
  
 // SERVICES ROUTES (Uses bigint ID)
  
@@ -315,7 +334,15 @@ app.get('/api/homepage-assets', async (req, res) => {
 // QUOTE REQUESTS ROUTES (Uses uuid ID)
 
 app.get('/api/quote-requests', async (req, res) => {
-    const { data, error } = await supabase.from('quote_requests').select('*').order('created_at', { ascending: false });
+    let query = supabase.from('quote_requests').select('*').order('created_at', { ascending: false });
+    if (typeof req.query.email === 'string' && req.query.email.trim()) {
+        const escaped = req.query.email.trim().replace(/[\\%_]/g, '\\$&');
+        query = query.ilike('email', escaped);
+    }
+    if (typeof req.query.branch === 'string' && req.query.branch.trim()) {
+        query = query.eq('branch', req.query.branch.trim());
+    }
+    const { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
 });
