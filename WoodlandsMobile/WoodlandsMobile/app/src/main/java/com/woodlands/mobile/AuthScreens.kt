@@ -63,6 +63,8 @@ internal fun MainActivity.registerScreen() {
     content.addView(tv("New accounts are created with the Customer role, exactly like registering on the website. Admin and manager accounts are provisioned by an administrator.", 11, muted).apply { setPadding(dp(16), 0, dp(16), dp(20)) })
 }
 
+
+
 internal fun MainActivity.profileScreen() {
     val activity = this
     val me = currentUser()
@@ -90,6 +92,8 @@ internal fun MainActivity.profileScreen() {
 
     sectionTitle("Password", "")
     content.addView(tv("Password changes aren't available in the app yet.", 12, muted).apply { setPadding(dp(16), 0, dp(16), dp(20)) })
+
+    addDeletionCard(me)
 
     content.addView(outlineButton("Delete my local account and quote data", red).apply {
         setOnClickListener {
@@ -121,6 +125,11 @@ internal fun MainActivity.settingsScreen() {
     }
     content.addView(accountCard, marginParams(16, 6, 16, 14))
 
+    if (me.role != Roles.ADMIN) {
+        addRecoveryCard(me)
+        addRestoreCard(me)
+    }
+
 //  Removed from only affecting logged in users
 //    connectionsSection()
 //    apiStatusSection()
@@ -129,7 +138,8 @@ internal fun MainActivity.settingsScreen() {
     listOf(
         "Synced with Woodlands" to "Catalogue, quotes and account details are loaded from the Woodlands service whenever you're online.",
         "Offline copy" to "A copy is kept on this device so the app loads quickly and keeps working without a connection.",
-        "Role-based access" to "Screens and actions are shown or hidden based on your account's role, the same as the website."
+        "Role-based access" to "Screens and actions are shown or hidden based on your account's role, the same as the website.",
+        "Account deletion" to "Deleting your account needs administrator approval. You can send a request from your profile."
     ).forEach { (title, sub) ->
         val c = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(12), dp(14), dp(12)); background = bg(greenBg, Color.rgb(190, 230, 200), 10) }
         c.addView(tv(title, 13, green).apply { setTypeface(typeface, Typeface.BOLD) })

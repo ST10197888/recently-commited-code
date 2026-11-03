@@ -1,0 +1,26 @@
+# IDE / Temp
+.vs/
+.idea/
+*.user
+*.suo
+
+# Node / API
+node_modules/
+npm-debug.log
+
+# ASP.NET Core Web
+bin/
+obj/
+appsettings.json
+!appsettings.Development.json
+
+# Android / Mobile
+.gradle/
+build/
+app/build/
+*.apk
+*.aab
+local.properties
+
+# Zip files
+*.zip

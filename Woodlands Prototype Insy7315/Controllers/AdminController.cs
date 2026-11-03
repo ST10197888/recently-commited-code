@@ -20,7 +20,7 @@ namespace Woodlands_Prototype_Insy7315.Controllers
             _logger = logger;
         }
 
-        // ==================== USERS (Admin only) ====================
+        // ====== USERS (Admin only) ======
 
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Users(string? filter = "all")
@@ -243,7 +243,7 @@ namespace Woodlands_Prototype_Insy7315.Controllers
             return RedirectToAction(nameof(Users));
         }
 
-        // ==================== TESTIMONIALS (Admin + Managers) ====================
+        // ====== TESTIMONIALS (Admin + Managers) ======
 
         public async Task<IActionResult> Testimonials(string? filter = "all")
         {
@@ -409,7 +409,7 @@ namespace Woodlands_Prototype_Insy7315.Controllers
             return RedirectToAction(nameof(Testimonials));
         }
 
-        // ==================== FAQS (Admin only) ====================
+        // ====== FAQS (Admin only) ======
 
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Faqs(string? category = "all")
@@ -578,7 +578,7 @@ namespace Woodlands_Prototype_Insy7315.Controllers
             return RedirectToAction(nameof(Faqs));
         }
 
-        // ==================== HELPERS ====================
+        // ====== HELPERS ======
 
         private async Task PopulateFaqCategories()
         {

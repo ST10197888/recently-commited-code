@@ -232,7 +232,7 @@ private fun MainActivity.productTile(p: Product): View {
     clipRound(tile, Color.WHITE, lineColor, 16)
     tile.setOnClickListener { selectedProduct = p.id; showScreen("product") }
     val imgBox = FrameLayout(this)
-    imgBox.addView(ImageView(this).apply { setImageResource(imageRes(p.image)); scaleType = ImageView.ScaleType.CENTER_CROP }, FrameLayout.LayoutParams(-1, -1))
+    imgBox.addView(ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP; setProductImage(this, p.image) }, FrameLayout.LayoutParams(-1, -1))
     val tag = p.tag
     if (!tag.isNullOrBlank()) {
         val badge = tv(tag.uppercase(), 9, blue).apply {

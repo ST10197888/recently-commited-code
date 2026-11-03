@@ -54,7 +54,7 @@ namespace Woodlands_Prototype_Insy7315.Controllers
                 return View(model);
             }
 
-            var claims = CreateClaims(result.User);
+            var claims = CreateClaims(result.User, result.Token!);
 
             var identity = new ClaimsIdentity(
                 claims,
@@ -142,7 +142,8 @@ namespace Woodlands_Prototype_Insy7315.Controllers
         }
 
         private static List<Claim> CreateClaims(
-            AppUser user)
+            AppUser user,
+            string apiToken)
         {
             return new List<Claim>
             {
@@ -168,7 +169,12 @@ namespace Woodlands_Prototype_Insy7315.Controllers
 
                 new Claim(
                     "Branch",
-                    user.Branch ?? "")
+                    user.Branch ?? ""),
+
+                // JWT issued by the Node API; sent as a Bearer token on every API call
+                new Claim(
+                    ApiTokenHelper.ClaimType,
+                    apiToken)
             };
         }
     }

@@ -19,7 +19,7 @@ namespace Woodlands_Prototype_Insy7315.Controllers
             _logger = logger;
         }
 
-        // ==================== PRODUCTS ====================
+        // ====== PRODUCTS ======
 
         public async Task<IActionResult> Products(string? category)
         {
@@ -431,7 +431,7 @@ namespace Woodlands_Prototype_Insy7315.Controllers
             return View(filtered);
         }
 
-        // ==================== HELPERS ====================
+        // ====== HELPERS ======
 
         private static ProductFormViewModel ToForm(Product product)
         {

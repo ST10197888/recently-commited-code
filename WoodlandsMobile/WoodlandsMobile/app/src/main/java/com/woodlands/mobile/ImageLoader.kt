@@ -16,7 +16,7 @@ import java.net.URL
 import java.util.concurrent.Executors
 
 object ImageLoader {
-    private val pool = Executors.newFixedThreadPool(3)
+    private val pool = Executors.newFixedThreadPool(6)
     private val main = Handler(Looper.getMainLooper())
     private val memory = object : LruCache<String, Bitmap>(24 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
@@ -32,10 +32,17 @@ object ImageLoader {
         }
         val appContext = context.applicationContext
         pool.execute {
-            val bmp = fetch(appContext, value)
-            if (bmp != null) {
-                memory.put(value, bmp)
-                main.post { if (view.tag == value) view.setImageBitmap(bmp) }
+            var bmp = fetch(appContext, value)
+            var tries = 0
+            while (bmp == null && value.startsWith("http") && tries < 3) {
+                Thread.sleep(6000)
+                bmp = fetch(appContext, value)
+                tries++
+            }
+            val result = bmp
+            if (result != null) {
+                memory.put(value, result)
+                main.post { if (view.tag == value) view.setImageBitmap(result) }
             }
         }
     }
@@ -49,7 +56,11 @@ object ImageLoader {
                 File(dir, value.hashCode().toString() + ".img")
             }
             if (!file.exists() && value.startsWith("http")) download(value, file)
-            if (file.exists() && file.length() > 0) decode(file) else null
+            if (file.exists() && file.length() > 0) {
+                val bmp = decode(file)
+                if (bmp == null && !value.startsWith("local:")) file.delete()
+                bmp
+            } else null
         } catch (e: Exception) {
             null
         }
@@ -59,8 +70,9 @@ object ImageLoader {
         val temp = File(target.parentFile, target.name + ".part")
         try {
             val conn = URL(url).openConnection() as HttpURLConnection
-            conn.connectTimeout = 8000
-            conn.readTimeout = 15000
+            conn.connectTimeout = 15000
+            conn.readTimeout = 70000
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) WoodlandsMobile")
             conn.inputStream.use { input -> FileOutputStream(temp).use { out -> input.copyTo(out) } }
             temp.renameTo(target)
         } finally {
@@ -105,4 +117,22 @@ internal fun MainActivity.prepareImage(uri: Uri, name: String): String? {
     } catch (e: Exception) {
         return null
     }
+}
+
+internal fun MainActivity.setProductImage(view: ImageView, value: String) {
+    if (value in productImageKeys) {
+        view.setImageResource(imageRes(value))
+        return
+    }
+    val path = remoteImagePath(value)
+    val url = when {
+        path.startsWith("http") -> path
+        path.startsWith("/") -> ApiClient.WEB_BASE_URL + path.replace(" ", "%20")
+        else -> ""
+    }
+    if (url.isBlank()) {
+        view.setImageResource(R.drawable.app_logo_transparent)
+        return
+    }
+    ImageLoader.load(this, view, url, R.drawable.app_logo_transparent)
 }

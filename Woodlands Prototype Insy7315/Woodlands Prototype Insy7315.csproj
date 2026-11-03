@@ -45,4 +45,9 @@
 		<PackageReference Include="Supabase" Version="1.0.0" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="Views\Backups\" />
+	  <Folder Include="wwwroot\downloads\" />
+	</ItemGroup>
+
 </Project>

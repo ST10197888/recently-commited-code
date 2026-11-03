@@ -116,3 +116,4 @@ private fun MainActivity.buildSidebarPanel(width: Int): LinearLayout {
     panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
     return panel
 }
+    

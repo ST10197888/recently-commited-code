@@ -202,6 +202,27 @@ internal fun LocalDb.clearPrivateData() {
     val db = writableDatabase
     db.delete("users", null, null)
     db.delete("quote_requests", null, null)
+    db.delete("contacts", "role=?", arrayOf(Roles.ADMIN))
+}
+
+internal fun LocalDb.loadContacts(): List<AppUser> {
+    val out = mutableListOf<AppUser>()
+    readableDatabase.query("contacts", null, null, null, null, null, "full_name").use { c ->
+        while (c.moveToNext()) out += c.toUser()
+    }
+    return out
+}
+
+internal fun LocalDb.reconcileContacts(rows: List<ContentValues>) {
+    val db = writableDatabase
+    db.beginTransaction()
+    try {
+        db.delete("contacts", null, null)
+        rows.forEach { db.insertWithOnConflict("contacts", null, it, SQLiteDatabase.CONFLICT_REPLACE) }
+        db.setTransactionSuccessful()
+    } finally {
+        db.endTransaction()
+    }
 }
 
 internal fun LocalDb.loadProducts(): List<Product> {

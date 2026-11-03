@@ -42,6 +42,8 @@ class LocalDb(context: Context) : SQLiteOpenHelper(context, "woodlands_mobile.db
         }
         if ("image" !in cols) db.execSQL("ALTER TABLE branches ADD COLUMN image TEXT DEFAULT ''")
         if ("address" !in cols) db.execSQL("ALTER TABLE branches ADD COLUMN address TEXT DEFAULT ''")
+        // Public staff directory for the Contact Manager screen (works logged out)
+        db.execSQL("CREATE TABLE IF NOT EXISTS contacts(id TEXT PRIMARY KEY, full_name TEXT, email TEXT, phone TEXT, role TEXT, branch TEXT, active INTEGER DEFAULT 1, created_at INTEGER)")
     }
     private fun createTables(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE products(id INTEGER PRIMARY KEY AUTOINCREMENT, remote_id TEXT UNIQUE, category TEXT, title TEXT, tagline TEXT, description TEXT, image TEXT, gallery TEXT, features TEXT, finishes TEXT, lead_time TEXT, tag TEXT, price TEXT)")

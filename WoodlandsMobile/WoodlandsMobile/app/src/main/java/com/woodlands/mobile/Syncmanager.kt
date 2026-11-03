@@ -34,7 +34,8 @@ object SyncManager {
     private val rerun = AtomicBoolean(false)
 
     @Volatile var onChanged: ((Boolean) -> Unit)? = null
-
+    @Volatile var onFinished: (() -> Unit)? = null
+  
     private class PushOutcome(val allDone: Boolean, val processed: Int)
 
     fun init(context: Context) {
@@ -64,6 +65,8 @@ object SyncManager {
                 Log.w(TAG, "Sync failed", e)
             } finally {
                 running.set(false)
+                mainHandler.post { onFinished?.invoke() }
+
             }
         }
     }
@@ -116,26 +119,61 @@ object SyncManager {
 
     fun isOnline(): Boolean {
         if (!ready) return false
-        val cm = appContext.getSystemService(ConnectivityManager::class.java)
-        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
-        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+
+        return when (val result = ApiClient.get("/api/branches")) {
+            is ApiResult.Success -> true
+
+            is ApiResult.Failure -> true
+
+            is ApiResult.Offline -> false
+        }
     }
 
-    internal fun checkConnection(syncAfter: Boolean, onResult: (ConnectionStatus) -> Unit) {
+    internal fun checkConnection(
+        syncAfter: Boolean,
+        onResult: (ConnectionStatus) -> Unit
+    ) {
         scope.launch {
-            val online = isOnline()
-            val status = if (!online) {
-                ConnectionStatus(false, false, "No internet connection on this device.")
-            } else {
-                when (val r = ApiClient.get("/api/branches")) {
-                    is ApiResult.Success -> ConnectionStatus(true, true, "The app can reach the Woodlands database.")
-                    is ApiResult.Failure -> ConnectionStatus(true, false, "The server returned an error (${r.code}).")
-                    is ApiResult.Offline -> ConnectionStatus(true, false, "The Woodlands server can't be reached.")
+            val result = ApiClient.get("/api/branches")
+
+            val status = when (result) {
+
+                is ApiResult.Success -> {
+                    ConnectionStatus(
+                        online = true,
+                        database = true,
+                        detail = "The app can reach the Woodlands server and database."
+                    )
+                }
+
+                is ApiResult.Failure -> {
+                    ConnectionStatus(
+                        online = true,
+                        database = false,
+                        detail = "The phone is online, but the Woodlands server returned HTTP ${result.code}."
+                    )
+                }
+
+                is ApiResult.Offline -> {
+                    ConnectionStatus(
+                        online = false,
+                        database = false,
+                        detail = "The phone cannot reach the Woodlands server."
+                    )
                 }
             }
-            mainHandler.post { onResult(status) }
-            if (syncAfter && status.database) syncAll()
+
+            mainHandler.post {
+                onResult(status)
+            }
+
+            if (
+                syncAfter &&
+                status.online &&
+                status.database
+            ) {
+                syncAll()
+            }
         }
     }
     internal fun checkApi(onResult: (List<EndpointStatus>) -> Unit) {
@@ -168,6 +206,21 @@ object SyncManager {
         }
     }
 
+    private fun pullContacts(db: LocalDb): Boolean {
+        val me = Session(appContext).userId?.let { db.findUserById(it) }
+        val seeAdmins = me != null && Roles.isStaff(me.role)
+        val path = if (seeAdmins) "/api/contacts?viewer=" + enc(me!!.id) else "/api/contacts"
+        val (arr, body) = fetchArray(path) ?: return false
+        val rows = objects(arr).map { userValues(it) }
+            .filter { it.getAsInteger("active") == 1 }
+            .filter { v ->
+                val role = v.getAsString("role")
+                Roles.isManager(role) || (seeAdmins && role == Roles.ADMIN)
+            }
+        db.reconcileContacts(rows)
+        return changedSince("h_contacts", body + seeAdmins)
+    }
+
     private fun runSync() {
         val db = LocalDb.shared(appContext)
         val firstLoad = db.loadBranches().isEmpty() && db.loadProducts().isEmpty()
@@ -181,7 +234,8 @@ object SyncManager {
             pullTestimonials(db),
             pullFaqs(db),
             pullBranches(db),
-            pullAccountData(db)
+            pullAccountData(db),
+            pullContacts(db)
         )
         if (outcome.processed > 0 || results.any { it }) publishChange(firstLoad)
     }
@@ -337,7 +391,7 @@ object SyncManager {
                 put("remote_id", o.optString("id"))
                 put("name", o.str("name") ?: "")
                 put("region", o.str("region") ?: "")
-        if (o.has("address") && !o.isNull("address")) put("address", o.optString("address"))
+                if (o.has("address") && !o.isNull("address")) put("address", o.optString("address"))
                 put("phone", o.str("phone") ?: "")
                 put("hours", o.str("hours") ?: "")
                 put("notes", o.str("notes") ?: "")
@@ -359,12 +413,21 @@ object SyncManager {
                 db.reconcileUsers(objects(arr).map { userValues(it) })
                 if (changedSince("h_users", body)) changed = true
             }
-        } else {
-            fetchArray("/api/app-users?email=" + enc(me.email))?.let { (arr, body) ->
-                objects(arr).firstOrNull { it.optString("id") == me.id }?.let { db.upsertUser(it) }
+        }else {
+        val mine = fetchArray("/api/app-users?email=" + enc(me.email))
+        if (mine != null) {
+            val (arr, body) = mine
+            val row = objects(arr).firstOrNull { it.optString("id") == me.id }
+            if (row != null) {
+                db.upsertUser(row)
                 if (changedSince("h_users", body)) changed = true
+            } else {
+                // Server no longer has this account (deletion approved): sign out on this device
+                Session(appContext).clear()
+                return true
             }
         }
+    }
 
         val branch = Roles.branchFor(me.role)
         val quotePath = when {

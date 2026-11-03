@@ -116,6 +116,9 @@ namespace Woodlands_Prototype_Insy7315.Models
         [Column("region")]
         public string Region { get; set; } = "";
 
+        [Column("address")]
+        public string Address { get; set; } = "";
+
         [Column("phone")]
         public string Phone { get; set; } = "";
 
@@ -124,6 +127,9 @@ namespace Woodlands_Prototype_Insy7315.Models
 
         [Column("notes")]
         public string Notes { get; set; } = "";
+
+        [Column("image")]
+        public string Image { get; set; } = "";
     }
 
     [Table("homepage_assets")]

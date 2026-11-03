@@ -25,6 +25,119 @@ private fun MainActivity.requireAdmin(): AppUser? {
     return u
 }
 
+internal fun MainActivity.deletionRequestsScreen() {
+    val me = requireAdmin() ?: return
+    pageIntro("Deletion Requests", "Approve or reject account deletion requests.")
+    val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+    content.addView(list)
+    list.addView(tv("Loading requests…", 13, muted).apply { setPadding(dp(16), dp(12), dp(16), dp(12)) })
+
+    Thread {
+        val r = ApiClient.get("/api/deletion-requests?viewer=" + java.net.URLEncoder.encode(me.id, "UTF-8"))
+        runOnUiThread {
+            if (currentScreen != "deletionRequests") return@runOnUiThread
+            list.removeAllViews()
+            when (r) {
+                is ApiResult.Offline -> list.addView(tv("You're offline. Connect to the internet to see requests.", 13, muted).apply { setPadding(dp(16), dp(12), dp(16), dp(12)) })
+                is ApiResult.Failure -> list.addView(tv(r.message, 13, red).apply { setPadding(dp(16), dp(12), dp(16), dp(12)) })
+                is ApiResult.Success -> {
+                    val arr = try { org.json.JSONArray(r.body) } catch (e: Exception) { org.json.JSONArray() }
+                    if (arr.length() == 0) {
+                        list.addView(tv("No deletion requests.", 13, muted).apply { setPadding(dp(16), dp(12), dp(16), dp(12)) })
+                    }
+                    for (i in 0 until arr.length()) {
+                        val o = arr.getJSONObject(i)
+                        val id = o.optString("id")
+                        val st = o.optString("status")
+                        val c = card().apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(12), dp(14), dp(12)) }
+                        c.addView(tv(o.optString("full_name"), 15, blue).apply { setTypeface(typeface, Typeface.BOLD) })
+                        c.addView(tv("${o.optString("email")} · ${Roles.label(o.optString("role"))}", 11, muted))
+                        c.addView(tv("Requested ${o.optString("created_at").take(10)} · $st", 11, if (st == "Pending") red else muted)
+                            .apply { setPadding(0, dp(2), 0, 0) })
+                        c.addView(tv("Recovery copy: " + (if (o.optBoolean("keep_data", false)) "Yes" else "No"), 11, muted)
+                            .apply { setPadding(0, dp(2), 0, 0) })
+                        o.str("resolved_at")?.takeIf { it.isNotBlank() }?.let { whenDone ->
+                            val by = o.str("resolved_by")?.takeIf { it.isNotBlank() }
+                            c.addView(tv("Resolved ${whenDone.take(10)}" + (if (by != null) " by $by" else ""), 11, muted).apply { setPadding(0, dp(2), 0, 0) })
+                        }
+                        o.str("admin_note")?.takeIf { it.isNotBlank() }?.let {
+                            c.addView(tv("Note: $it", 13, text).apply { setPadding(0, dp(8), 0, 0) })
+                        }
+                        o.str("message")?.takeIf { it.isNotBlank() }?.let {
+                            c.addView(tv("Message from user: $it", 13, text).apply { setPadding(0, dp(8), 0, 0) })
+                        }
+                        if (st == "Pending") {
+                            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(10), 0, 0) }
+                            row.addView(button("Approve & delete", red, Color.WHITE).apply {
+                                setOnClickListener {
+                                    android.app.AlertDialog.Builder(this@deletionRequestsScreen)
+                                        .setTitle("Delete this account?")
+                                        .setMessage("${o.optString("full_name").ifBlank { o.optString("email") }}'s account and quote records will be permanently deleted" +
+                                                (if (o.optBoolean("keep_data", false)) ", and a recoverable copy will be saved." else ". This cannot be undone."))
+                                        .setNegativeButton("Cancel", null)
+                                        .setPositiveButton("Delete account") { _, _ -> decideDeletion(id, true, me.fullName) }
+                                        .show()
+                                }
+                            }, marginParams(0, 0, 8, 0).apply { width = LinearLayout.LayoutParams.WRAP_CONTENT })
+                            row.addView(outlineButton("Reject", blue).apply {
+                                setOnClickListener {
+                                    val reason = field("Reason", "", required = false)
+                                    val holder = LinearLayout(this@deletionRequestsScreen).apply { setPadding(dp(20), dp(8), dp(20), 0); addView(reason, LinearLayout.LayoutParams(-1, -2)) }
+                                    android.app.AlertDialog.Builder(this@deletionRequestsScreen)
+                                        .setTitle("Reject this request?")
+                                        .setMessage("The account will be left unchanged.")
+                                        .setView(holder)
+                                        .setNegativeButton("Cancel", null)
+                                        .setPositiveButton("Reject") { _, _ -> decideDeletion(id, false, me.fullName, reason.text?.toString()?.trim().orEmpty()) }
+                                        .show()
+                                }
+                            })
+                            c.addView(row)
+                        }
+                        list.addView(c, marginParams(16, 5, 16, 5))
+                    }
+                }
+            }
+        }
+    }.start()
+}
+
+private fun MainActivity.decideDeletion(id: String, approve: Boolean, adminName: String, note: String = "") {
+    toast("Working…")
+    val safeId = java.net.URLEncoder.encode(id, "UTF-8")
+    Thread {
+        val r = if (approve) {
+            ApiClient.post(
+                "/api/deletion-requests/$safeId/approve",
+                org.json.JSONObject().put("resolved_by", adminName).toString()
+            )
+        } else {
+            ApiClient.put(
+                "/api/deletion-requests/$safeId/reject",
+                org.json.JSONObject().put("admin_note", note.take(500)).put("resolved_by", adminName).toString()
+            )
+        }
+        runOnUiThread {
+            when (r) {
+                is ApiResult.Success -> {
+                    val archived = approve && try { org.json.JSONObject(r.body).optBoolean("archived", false) } catch (e: Exception) { false }
+                    toast(
+                        when {
+                            !approve -> "Request rejected. The account was left unchanged."
+                            archived -> "Account deleted. A recoverable copy of the data was saved."
+                            else -> "Account deleted."
+                        }
+                    )
+                    if (approve) SyncManager.syncAll()
+                    if (currentScreen == "deletionRequests") showScreen("deletionRequests")
+                }
+                is ApiResult.Failure -> toast(r.message)
+                is ApiResult.Offline -> toast("You're offline. Nothing was changed.")
+            }
+        }
+    }.start()
+}
+
 private fun MainActivity.statusColors(status: String): Pair<Int, Int> = when (status) {
     "Completed" -> greenBg to green
     "In Progress" -> lightBlueBg to blue
@@ -127,6 +240,7 @@ internal fun MainActivity.usersScreen() {
     requireAdmin() ?: return
     pageIntro("Manage Users", "Add, edit or deactivate staff and customer accounts.")
     content.addView(button("+ Add User", red, Color.WHITE).apply { setOnClickListener { editUserId = null; showScreen("userForm") } }, marginParams(16, 10, 16, 10))
+    content.addView(outlineButton("Account deletion requests", red).apply { setOnClickListener { showScreen("deletionRequests") } }, marginParams(16, 0, 16, 10))
     db.loadUsers().forEach { u ->
         val c = card().apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(12), dp(14), dp(12)) }
         c.addView(tv(u.fullName, 14, blue).apply { setTypeface(typeface, Typeface.BOLD) })

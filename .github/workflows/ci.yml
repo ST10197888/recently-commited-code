@@ -1,0 +1,54 @@
+name: CI Build Pipeline
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+jobs:
+  build-api:
+    name: Build Node.js API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: './Woodlands API'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '18'
+      - run: npm ci || npm install
+
+  build-web:
+    name: Build ASP.NET Web App
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet build "./Woodlands Prototype Insy7315/Woodlands Prototype Insy7315.csproj" --configuration Release
+
+  build-mobile:
+    name: Build Android App
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: './WoodlandsMobile/WoodlandsMobile'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew assembleDebug --no-daemon

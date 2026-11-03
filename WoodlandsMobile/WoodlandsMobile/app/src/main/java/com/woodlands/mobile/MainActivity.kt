@@ -1,5 +1,8 @@
 package com.woodlands.mobile
 
+import com.woodlands.mobile.TutorialDemo.TutorialDemoController
+import com.woodlands.mobile.TutorialDemo.TutorialDemoData
+import com.woodlands.mobile.TutorialDemo.tutorialDemoScreen
 import android.app.Activity
 import android.content.Intent
 import android.content.res.ColorStateList
@@ -19,6 +22,7 @@ import android.view.WindowInsets
 import android.view.WindowInsetsController
 
 
+
 class MainActivity : Activity() {
     internal lateinit var db: LocalDb
     internal lateinit var session: Session
@@ -27,10 +31,15 @@ class MainActivity : Activity() {
     internal lateinit var content: LinearLayout
     internal lateinit var bottom: LinearLayout
     internal var currentScreen = "home"
-    internal var selectedProduct: Int? = null
     internal var galleryFilter = "All"
     internal var sidebarOpen = false
 
+    internal var selectedProduct: Int? = null
+
+    // Tutorial Demo Mode state
+    internal var tutorialDemoActive = false
+    internal var tutorialStepIndex = 0
+    internal var tutorialDemoPage = "gallery"
     internal var topInset = 0
     internal var bottomInset = 0
     // form-in-progress state used by the admin/manager management screens
@@ -52,9 +61,47 @@ class MainActivity : Activity() {
     internal val tan = Color.rgb(201, 160, 99)
     internal val lineColor = Color.rgb(231, 227, 219)
 
+    internal var pullStartedAt = 0L
+
+    internal var loaderView: ImageView? = null
+    internal var loaderSpin: android.animation.ObjectAnimator? = null
+
+    internal fun showLoader() {
+        if (loaderView != null) return
+        val v = ImageView(this).apply {
+            setImageResource(R.drawable.app_logo_transparent)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            background = bg(Color.WHITE, lineColor, 26)
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            elevation = dp(6).toFloat()
+        }
+        pageContainer.addView(v, FrameLayout.LayoutParams(dp(52), dp(52), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = topInset + dp(78) })
+        loaderSpin = android.animation.ObjectAnimator.ofFloat(v, View.ROTATION, 0f, 360f).apply {
+            duration = 900
+            repeatCount = android.animation.ValueAnimator.INFINITE
+            interpolator = android.view.animation.LinearInterpolator()
+            start()
+        }
+        loaderView = v
+    }
+
+    internal fun hideLoader() {
+        val v = loaderView ?: return
+        loaderSpin?.cancel()
+        loaderSpin = null
+        pageContainer.removeView(v)
+        loaderView = null
+    }
+
+    internal fun stopPull() {
+        val wait = 900L - (System.currentTimeMillis() - pullStartedAt)
+        if (wait > 0) pageContainer.postDelayed({ hideLoader() }, wait) else hideLoader()
+    }
+
     /** Screens that fall "under" the More tab so the bottom nav highlights the right icon. */
     private val moreFamily = setOf(
-        "more", "about", "testimonials", "faqs", "contact",
+        "more", "tutorial", "help", "contactManager",
+        "about", "testimonials", "faqs", "contact",
         "login", "register", "profile", "settings",
         "dashboard", "quotes", "users", "userForm",
         "manageProducts", "productForm", "manageTestimonials", "testimonialForm", "manageFaqs", "faqForm"
@@ -80,7 +127,12 @@ class MainActivity : Activity() {
             WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
             WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
         )
-        showScreen("home")
+        // First installation or start Welcom if tutorial not yet completed
+        if (!tutorialCompleted()) {
+            showScreen("welcome")
+        } else {
+            showScreen("home")
+        }
     }
 
     /** 15dp boundary between app content and system status and navigation bars. */
@@ -106,39 +158,207 @@ class MainActivity : Activity() {
 
     @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun onBackPressed() {
-        if (sidebarOpen) { closeSidebar(); return }
-        if (selectedProduct != null) { selectedProduct = null; showScreen("gallery"); return }
-        if (currentScreen == "branchForm") { showScreen("branches"); return }
-        if (currentScreen in setOf("login", "register", "profile", "settings", "dashboard", "quotes", "users", "userForm", "manageProducts", "productForm", "manageTestimonials", "testimonialForm", "manageFaqs", "faqForm")) { showScreen("more"); return }
-        if (currentScreen in LEGAL_SCREENS) { showScreen("legal"); return }
-        if (currentScreen == "legal") { showScreen("more"); return }
-        if (currentScreen !in listOf("home", "gallery", "quote", "branches", "more")) { showScreen("home"); return }
-        if (currentScreen != "home") showScreen("home") else super.onBackPressed()
+        if (sidebarOpen) {
+            closeSidebar()
+            return
+        }
+
+        if (currentScreen == "welcome") {
+            if (tutorialCompleted()) {
+                showScreen("more")
+            } else {
+                toast("Please continue to the tutorial first.")
+            }
+            return
+        }
+
+        if (currentScreen == "tutorialDemo") {
+            returnToTutorial()
+            return
+        }
+        if (currentScreen == "tutorial") {
+            if (tutorialCompleted()) {
+                showScreen("help")
+            } else {
+                toast("Please complete the tutorial before leaving.")
+            }
+            return
+        }
+
+        if (currentScreen == "help" || currentScreen == "contactManager") {
+            showScreen("more")
+            return
+        }
+
+        if (selectedProduct != null) {
+            selectedProduct = null
+            showScreen("gallery")
+            return
+        }
+
+        if (currentScreen == "branchForm") {
+            showScreen("branches")
+            return
+        }
+
+        if (currentScreen in setOf(
+                "login", "register", "profile", "settings",
+                "dashboard", "quotes", "users", "userForm",
+                "manageProducts", "productForm", "manageTestimonials",
+                "testimonialForm", "manageFaqs", "faqForm"
+            )) {
+            showScreen("more")
+            return
+        }
+
+        if (currentScreen in LEGAL_SCREENS) {
+            showScreen("legal")
+            return
+        }
+
+        if (currentScreen == "legal") {
+            showScreen("more")
+            return
+        }
+
+        if (currentScreen !in listOf("home", "gallery", "quote", "branches", "more")) {
+            showScreen("home")
+            return
+        }
+
+        if (currentScreen != "home") {
+            showScreen("home")
+        } else {
+            super.onBackPressed()
+        }
     }
 
     internal fun currentUser(): AppUser? = session.userId?.let { db.findUserById(it) }
 
+    // Tutorial completion tracking
+    private val tutorialPrefs by lazy {
+        getSharedPreferences("woodlands_tutorial", MODE_PRIVATE)
+    }
+
+    internal fun tutorialCompleted(): Boolean {
+        return tutorialPrefs.getBoolean("completed", false)
+    }
+
+    internal fun tutorialCompletedAt(): Long {
+        return tutorialPrefs.getLong("completed_at", 0L)
+    }
+
+    internal fun markTutorialCompleted() {
+        val completedAt = System.currentTimeMillis()
+
+        tutorialPrefs.edit()
+            .putBoolean("completed", true)
+            .putLong("completed_at", completedAt)
+            .apply()
+    }
+
+    internal fun formatTutorialDate(timestamp: Long): String {
+        if (timestamp <= 0L) return "Not completed"
+
+        return java.text.SimpleDateFormat(
+            "dd MMMM yyyy 'at' HH:mm",
+            java.util.Locale.getDefault()
+        ).format(java.util.Date(timestamp))
+    }
+
+    // Start a fresh demo session
+    internal fun startTutorialDemo() {
+        TutorialDemoData.clear()
+        tutorialDemoActive = true
+        tutorialStepIndex = 0
+        tutorialDemoPage = "gallery"
+        showScreen("tutorial")
+    }
+
+    // Open a temporary practice screen
+    internal fun openTutorialDemo(page: String) {
+        if (!tutorialDemoActive) return
+        tutorialDemoPage = page
+        showScreen("tutorialDemo")
+    }
+
+    // Return to the same tutorial step without resetting progress
+    internal fun returnToTutorial() {
+        showScreen("tutorial")
+    }
+
+    // Discard temporary tutorial information
+    internal fun clearTutorialDemo() {
+        TutorialDemoData.clear()
+        tutorialDemoActive = false
+        tutorialStepIndex = 0
+        tutorialDemoPage = "gallery"
+    }
+
     internal fun showScreen(screen: String) {
+
+        // Start a fresh demo session whenever Tutorial is opened from elsewhere
+        if (screen == "tutorial" && !tutorialDemoActive) {
+            TutorialDemoData.clear()
+            tutorialDemoActive = true
+            tutorialStepIndex = 0
+            tutorialDemoPage = "gallery"
+        }
+
         if (sidebarOpen) closeSidebarImmediate()
         currentScreen = screen
-        if (screen in listOf("home", "gallery", "branches", "more", "about", "testimonials", "faqs", "contact")) selectedProduct = null
+        if (screen in listOf(
+                "home", "gallery", "branches", "more",
+                "tutorial", "help", "contactManager",
+                "about", "testimonials", "faqs", "contact"
+            )) selectedProduct = null
         root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.WHITE) }
         applyEdgeGaps()
         pageContainer.removeAllViews()
         pageContainer.addView(root, FrameLayout.LayoutParams(-1, -1))
-        root.addView(header())
+        loaderView?.let { pageContainer.addView(it, it.layoutParams) }
+        if (screen !in listOf("welcome")) {
+            root.addView(header())
+        }
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.WHITE) }
         val scroll = ScrollView(this).apply { isFillViewport = true; addView(content) }
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        val refresh = androidx.swiperefreshlayout.widget.SwipeRefreshLayout(this).apply {
+            addView(scroll)
+            setColorSchemeColors(Color.parseColor("#2E6B33"))
+
+            if (screen != "tutorialDemo") {
+                setOnRefreshListener {
+                    isRefreshing = false
+                    pullStartedAt = System.currentTimeMillis()
+                    showLoader()
+                    SyncManager.onFinished = { stopPull() }
+                    SyncManager.syncAll()
+
+                    val started = pullStartedAt
+                    pageContainer.postDelayed({
+                        if (pullStartedAt == started) stopPull()
+                    }, 20000)
+                }
+            }
+        }
+        root.addView(refresh, LinearLayout.LayoutParams(-1, 0, 1f))
         bottom = bottomNav()
-        root.addView(bottom)
+
+        if (screen !in listOf("welcome", "tutorialDemo")) {
+            root.addView(bottom)
+        }
         when (screen) {
+            "tutorial" -> tutorialScreen()
             "home" -> homeScreen()
             "gallery" -> galleryScreen()
             "quote" -> quoteScreen()
             "branches" -> branchListScreen()
             "branchForm" -> branchFormScreen()
             "more" -> moreScreen()
+            "welcome" -> welcomeScreen()
+            "tutorialDemo" -> tutorialDemoScreen()
+            "help" -> helpScreen()
+            "contactManager" -> contactManagerScreen()
             "about" -> aboutScreen()
             "testimonials" -> testimonialsScreen()
             "faqs" -> faqScreen()
@@ -154,6 +374,7 @@ class MainActivity : Activity() {
             "dashboard" -> dashboardScreen()
             "quotes" -> quotesScreen()
             "users" -> usersScreen()
+            "deletionRequests" -> deletionRequestsScreen()
             "userForm" -> userFormScreen()
             "manageProducts" -> manageProductsScreen()
             "productForm" -> productFormScreen()
@@ -165,12 +386,25 @@ class MainActivity : Activity() {
         bottom.visibility = if (screen in listOf("home", "gallery", "quote", "branches", "more")) View.VISIBLE else View.GONE
     }
 
-    //  chrome: header / sidebar trigger / bottom nav 
+    //  chrome: header / sidebar trigger / bottom nav
 
     private fun header(): View {
         val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(6), dp(8), dp(12), dp(8)); setBackgroundColor(Color.WHITE); elevation = 3f }
-        val menu = TextView(this).apply { text = "☰"; textSize = 22f; setTextColor(blue); gravity = Gravity.CENTER; background = rippleBg(Color.WHITE, lineColor, 12, 45); isClickable = true; setOnClickListener { openSidebar() } }
-        bar.addView(menu, LinearLayout.LayoutParams(dp(42), dp(42)).apply { setMargins(dp(6), 0, 0, 0) })
+        if (currentScreen !in listOf("welcome", "tutorial", "tutorialDemo")) {
+            val menu = TextView(this).apply {
+                text = "☰"
+                textSize = 22f
+                setTextColor(blue)
+                gravity = Gravity.CENTER
+                background = rippleBg(Color.WHITE, lineColor, 12, 45)
+                isClickable = true
+                setOnClickListener { openSidebar() }
+            }
+
+            bar.addView(menu, LinearLayout.LayoutParams(dp(42), dp(42)).apply {
+                setMargins(dp(6), 0, 0, 0)
+            })
+        }
         val logo = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; isClickable = true; setOnClickListener { showScreen("home") } }
         logo.addView(ImageView(this).apply { setImageResource(R.drawable.app_logo_transparent); scaleType = ImageView.ScaleType.FIT_CENTER }, LinearLayout.LayoutParams(dp(36), dp(36)).apply { setMargins(0, 0, dp(8), 0) })
         val logoText = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL }
@@ -183,7 +417,8 @@ class MainActivity : Activity() {
             val avatar = TextView(this).apply { text = initialsOf(me.fullName); textSize = 12f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; setTypeface(typeface, Typeface.BOLD); background = rippleBg(blue, Color.TRANSPARENT, 18, 60); isClickable = true; setOnClickListener { showScreen("profile") } }
             bar.addView(avatar, LinearLayout.LayoutParams(dp(36), dp(36)).apply { setMargins(0, 0, dp(8), 0) })
         }
-        if (me == null || !Roles.isStaff(me.role)) {
+        if (currentScreen !in listOf("welcome", "tutorial", "tutorialDemo") &&
+            (me == null || !Roles.isStaff(me.role))) {
             val quote = button("Quote", red, Color.WHITE).apply { setOnClickListener { showScreen("quote") } }
             bar.addView(quote, LinearLayout.LayoutParams(dp(82), dp(42)))
         }
@@ -210,7 +445,7 @@ class MainActivity : Activity() {
     }
     private fun staffUser() = currentUser()?.let { Roles.isStaff(it.role) } == true
     private fun active(label: String) = when (label) { "Home" -> currentScreen == "home"; "Gallery" -> currentScreen == "gallery" || currentScreen == "product"; "Quote" -> currentScreen == "quote"; "Quotes" -> currentScreen == "quotes"; "Branches" -> currentScreen == "branches" || currentScreen == "branchForm"; else -> currentScreen in moreFamily && !(staffUser() && currentScreen == "quotes") }
-    //  home 
+    //  home
 
     private fun homeScreen() {
         heroCarousel()
@@ -221,7 +456,7 @@ class MainActivity : Activity() {
         cta("Need something custom?", "All our products can be tailored to your space.", "Request a Quote") { showScreen("quote") }
         homeFooter()
     }
-    //  gallery / product / quote / branches 
+    //  gallery / product / quote / branches
 
     private fun galleryScreen() {
         pageIntro("Services & Gallery", "Browse the catalogue and filter products by category.")
@@ -236,7 +471,7 @@ class MainActivity : Activity() {
     private fun productScreen(id: Int) {
         val p = db.loadProducts().firstOrNull { it.id == id } ?: run { showScreen("gallery"); return }
         pageIntro(p.title, p.category)
-        val img = ImageView(this).apply { setImageResource(imageRes(p.image)); scaleType = ImageView.ScaleType.CENTER_CROP }
+        val img = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP; setProductImage(this, p.image) }
         content.addView(img, sizeMarginParams(-1, dp(220), 12, 0, 12, 0))
         content.addView(tv(p.tagline, 16, red).apply { setTypeface(typeface, Typeface.BOLD); setPadding(dp(16), dp(14), dp(16), dp(4)) })
         content.addView(tv(p.description, 13, muted).apply { setPadding(dp(16), 0, dp(16), dp(12)) })
@@ -282,7 +517,7 @@ class MainActivity : Activity() {
     internal fun showPrivacyNotice() {
         android.app.AlertDialog.Builder(this)
             .setTitle("Privacy notice")
-            .setMessage("This prototype stores account, quote and contact details in the app's private database on this device and the shared online database. Requests are sent to the database then shared to the website by this mobile app. Quote and contact forms use your name, email, branch, service and message; phone number is optional. To delete your account and quote records on this device, use Profile > Delete my local account and quote data. For access, correction or deletion requests about the website or other systems, email info@woodlandsdb.co.za. That address must be confirmed by the business before launch.")
+            .setMessage("This prototype stores account, quote and contact details in the app's private database on this device and the shared online database. Requests are sent to the database then shared to the website by this mobile app. Quote and contact forms use your name, email, branch, service and message; phone number is optional. To delete your account and your quote requests, use Profile > Delete my account. An administrator must approve the request before anything is removed. For access, correction or deletion requests about the website or other systems, email info@woodlandsdb.co.za. That address must be confirmed by the business before launch.")
             .setPositiveButton("Close", null)
             .show()
     }
@@ -303,7 +538,7 @@ class MainActivity : Activity() {
         content.addView(tv("The current prototype intentionally keeps the branch phone number as 011 XXX XXXX, matching the website seed data.", 11, muted).apply { setPadding(dp(16), dp(10), dp(16), dp(20)) })
     }
 
-    //  more (account hub) 
+    //  more (account hub)
 
     private fun moreScreen() {
         pageIntro("More", "Your account and information")
@@ -328,11 +563,76 @@ class MainActivity : Activity() {
             content.addView(outlineButton("Settings", blue).apply { setOnClickListener { showScreen("settings") } }, marginParams(16, 0, 16, 6))
             content.addView(outlineButton("Logout", red).apply { setOnClickListener { session.clear(); toast("Signed out"); showScreen("home") } }, marginParams(16, 0, 16, 12))
         }
-        sectionTitle("Information", "")
-        listOf("About Us" to "Learn about Woodlands Designer Boards", "Testimonials" to "Read customer feedback", "FAQs" to "Answers about products and services", "Contact Us" to "Send a message or start a quote", "Legal Information" to "Privacy, terms, refunds and cookies", "Connection Status" to "Check the App's status connection").forEach { (title, sub) ->
-            val c = card().apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(14), dp(16), dp(14)); setOnClickListener { when (title) { "About Us" -> showScreen("about"); "Testimonials" -> showScreen("testimonials"); "FAQs" -> showScreen("faqs");"Legal Information" -> showScreen("legal"); "Connection Status" -> showScreen("status"); else -> showScreen("contact") } } }
-            c.addView(tv(title, 17, blue).apply { setTypeface(typeface, Typeface.BOLD) }); c.addView(tv(sub, 12, muted).apply { setPadding(0, dp(4), 0, 0) }); content.addView(c, marginParams(16, 6, 16, 6))
+        // HELP SECTION
+        sectionTitle("Help", "Tutorials, answers and branch support")
+
+        val helpCard = card().apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            setOnClickListener {
+                showScreen("help")
+            }
         }
+
+        helpCard.addView(
+            tv("Help Centre", 17, blue).apply {
+                setTypeface(typeface, Typeface.BOLD)
+            }
+        )
+
+        helpCard.addView(
+            tv(
+                "Access the tutorial, frequently asked questions and branch manager contact details.",
+                12,
+                muted
+            ).apply {
+                setPadding(0, dp(4), 0, 0)
+            }
+        )
+
+        content.addView(helpCard, marginParams(16, 6, 16, 12))
+
+// OTHER INFORMATION
+        sectionTitle("Information", "")
+
+        listOf(
+            "About Us" to "Learn about Woodlands Designer Boards",
+            "Testimonials" to "Read customer feedback",
+            "Contact Us" to "Send a message or start a quote",
+            "Legal Information" to "Privacy, terms, refunds and cookies",
+            "Connection Status" to "Check the app's connection status"
+        ).forEach { (title, sub) ->
+
+            val c = card().apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), dp(14), dp(16), dp(14))
+
+                setOnClickListener {
+                    when (title) {
+                        "About Us" -> showScreen("about")
+                        "Testimonials" -> showScreen("testimonials")
+                        "Legal Information" -> showScreen("legal")
+                        "Connection Status" -> showScreen("status")
+                        else -> showScreen("contact")
+                    }
+                }
+            }
+
+            c.addView(
+                tv(title, 17, blue).apply {
+                    setTypeface(typeface, Typeface.BOLD)
+                }
+            )
+
+            c.addView(
+                tv(sub, 12, muted).apply {
+                    setPadding(0, dp(4), 0, 0)
+                }
+            )
+
+            content.addView(c, marginParams(16, 6, 16, 6))
+        }
+
         footerNote()
     }
 
@@ -343,7 +643,7 @@ class MainActivity : Activity() {
         showScreen(if (Roles.isStaff(user.role)) "dashboard" else "home")
     }
 
-    //  about / testimonials / faqs / contact 
+    //  about / testimonials / faqs / contact
 
     private fun aboutScreen() {
         pageIntro("About Woodlands Designer Boards", "Explore our custom furniture and cabinetry services for homes, designers, and contractors across Gauteng.")
@@ -365,9 +665,143 @@ class MainActivity : Activity() {
     }
 
     private fun testimonialsScreen() {
-        pageIntro("Client feedback", "")
-        content.addView(tv("There are no verified client testimonials published yet.", 14, text).apply { setPadding(dp(16), dp(10), dp(16), dp(20)) })
-        cta("Have a project in mind?", "Send a quote request to get started.", "Request a Quote") { showScreen("quote") }
+        pageIntro("Client feedback", "What our customers say about Woodlands Designer Boards.")
+
+        val testimonialsContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        content.addView(testimonialsContainer)
+
+        fun renderTestimonials() {
+            testimonialsContainer.removeAllViews()
+
+            val list = db.loadTestimonials()
+
+            if (list.isEmpty()) {
+                testimonialsContainer.addView(
+                    card().apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(dp(16), dp(16), dp(16), dp(16))
+
+                        addView(
+                            tv(
+                                "No testimonials are available right now.",
+                                14,
+                                text
+                            )
+                        )
+
+                        addView(
+                            tv(
+                                "Connect to the internet and try again.",
+                                12,
+                                muted
+                            ).apply {
+                                setPadding(0, dp(6), 0, 0)
+                            }
+                        )
+                    },
+                    marginParams(16, 10, 16, 10)
+                )
+
+                return
+            }
+
+            list.forEach { testimonial ->
+                val cardView = card().apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(16), dp(15), dp(16), dp(15))
+                }
+
+                cardView.addView(
+                    tv(
+                        testimonial.name,
+                        17,
+                        blue
+                    ).apply {
+                        setTypeface(typeface, Typeface.BOLD)
+                    }
+                )
+
+                val metaParts = mutableListOf<String>()
+
+                if (testimonial.role.isNotBlank()) {
+                    metaParts.add(testimonial.role)
+                }
+
+                if (testimonial.location.isNotBlank()) {
+                    metaParts.add(testimonial.location)
+                }
+
+                if (metaParts.isNotEmpty()) {
+                    cardView.addView(
+                        tv(
+                            metaParts.joinToString(" · "),
+                            11,
+                            muted
+                        ).apply {
+                            setPadding(0, dp(3), 0, 0)
+                        }
+                    )
+                }
+
+                val rating = testimonial.rating.coerceIn(1, 5)
+
+                cardView.addView(
+                    tv(
+                        "★".repeat(rating) + "☆".repeat(5 - rating),
+                        16,
+                        tan
+                    ).apply {
+                        setTypeface(typeface, Typeface.BOLD)
+                        setPadding(0, dp(8), 0, 0)
+                    }
+                )
+
+                if (testimonial.review.isNotBlank()) {
+                    cardView.addView(
+                        tv(
+                            "“${testimonial.review}”",
+                            14,
+                            text
+                        ).apply {
+                            setPadding(0, dp(10), 0, 0)
+                            setLineSpacing(dp(2).toFloat(), 1f)
+                        }
+                    )
+                }
+
+                if (testimonial.project.isNotBlank()) {
+                    cardView.addView(
+                        tv(
+                            testimonial.project,
+                            11,
+                            muted
+                        ).apply {
+                            setTypeface(typeface, Typeface.BOLD)
+                            setPadding(0, dp(10), 0, 0)
+                        }
+                    )
+                }
+
+                testimonialsContainer.addView(
+                    cardView,
+                    marginParams(16, 6, 16, 6)
+                )
+            }
+        }
+
+        renderTestimonials()
+        SyncManager.syncAll()
+
+        cta(
+            "Have a project in mind?",
+            "Send a quote request to get started.",
+            "Request a Quote"
+        ) {
+            showScreen("quote")
+        }
     }
 
     private fun faqScreen() {
@@ -416,13 +850,12 @@ class MainActivity : Activity() {
         }, marginParams(16, 12, 16, 20))
     }
 
-    //  shared UI building blocks 
-
+    //  shared UI building blocks
     private fun productList(products: List<Product>) {
         val row = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         products.forEach { p ->
             val c = card().apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(8), dp(8), dp(8), dp(8)); setOnClickListener { selectedProduct = p.id; showScreen("product") } }
-            val im = ImageView(this).apply { setImageResource(imageRes(p.image)); scaleType = ImageView.ScaleType.CENTER_CROP }; c.addView(im, LinearLayout.LayoutParams(dp(112), dp(104)))
+            val im = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP; setProductImage(this, p.image) }; c.addView(im, LinearLayout.LayoutParams(dp(112), dp(104)))
             val info = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0) }; info.addView(tv(p.category.uppercase(), 10, red)); info.addView(tv(p.title, 15, blue).apply { setTypeface(typeface, Typeface.BOLD) }); info.addView(tv(p.tagline, 11, muted)); info.addView(tv(p.price, 13, blue).apply { setTypeface(typeface, Typeface.BOLD); setPadding(0, dp(5), 0, 0) }); c.addView(info, LinearLayout.LayoutParams(0, dp(104), 1f)); row.addView(c, marginParams(12, 6, 12, 6))
         }; content.addView(row)
     }

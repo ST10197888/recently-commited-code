@@ -18,6 +18,8 @@ namespace Woodlands_Prototype_Insy7315.Models
         public string? Branch { get; set; }
         [JsonPropertyName("active")]
         public bool Active { get; set; } = true;
+        [JsonPropertyName("keep_data_on_delete")]
+        public bool KeepDataOnDelete { get; set; }
         [JsonPropertyName("created_at")]
         public DateTime CreatedAt { get; set; }
     }

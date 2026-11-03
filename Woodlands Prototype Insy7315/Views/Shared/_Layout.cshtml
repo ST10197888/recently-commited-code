@@ -80,6 +80,7 @@
                 <a asp-controller="Testimonials" asp-action="Index" class="mobile-link">Testimonials</a>
                 <a asp-controller="FAQs" asp-action="Index" class="mobile-link">FAQs</a>
                 <a asp-controller="Contact" asp-action="Index" class="mobile-link">Contact</a>
+                                <a asp-controller="App" asp-action="Index" class="mobile-link">Get the Android app</a>
                 @if (User.Identity?.IsAuthenticated == true)
                 {
                     <a asp-controller="Dashboard" asp-action="Index" class="mobile-link">Dashboard</a>
@@ -124,6 +125,7 @@
                         <li><a asp-controller="Testimonials" asp-action="Index">Testimonials</a></li>
                         <li><a asp-controller="FAQs" asp-action="Index">FAQs</a></li>
                         <li><a asp-controller="Contact" asp-action="Index">Contact</a></li>
+                        <li><a asp-controller="App" asp-action="Index">Get the app</a></li>
                     </ul>
                 </div>
                 <div>

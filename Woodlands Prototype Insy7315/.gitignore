@@ -4,3 +4,4 @@ obj/
 Data/*.db
 Data/*.db-shm
 Data/*.db-wal
+wwwroot/Updates/

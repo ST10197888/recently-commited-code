@@ -14,7 +14,7 @@ namespace Woodlands_Prototype_Insy7315.Services
             _httpClientFactory = httpClientFactory;
         }
 
-        public async Task<(bool Success, string? Error, AppUser? User)> LoginAsync(string email, string password)
+        public async Task<(bool Success, string? Error, AppUser? User, string? Token)> LoginAsync(string email, string password)
         {
             try
             {
@@ -28,18 +28,18 @@ namespace Woodlands_Prototype_Insy7315.Services
                 if (!response.IsSuccessStatusCode)
                 {
                     var errObj = JsonSerializer.Deserialize<ErrorResponse>(json, _jsonOptions);
-                    return (false, errObj?.Error ?? "Invalid email or password.", null);
+                    return (false, errObj?.Error ?? "Invalid email or password.", null, null);
                 }
 
                 var result = JsonSerializer.Deserialize<LoginResponse>(json, _jsonOptions);
-                if (result?.User == null)
-                    return (false, "Invalid login response.", null);
+                if (result?.User == null || string.IsNullOrWhiteSpace(result.Token))
+                    return (false, "Invalid login response.", null, null);
 
-                return (true, null, result.User);
+                return (true, null, result.User, result.Token);
             }
             catch (Exception ex)
             {
-                return (false, "Login service unavailable: " + ex.Message, null);
+                return (false, "Login service unavailable: " + ex.Message, null, null);
             }
         }
 
@@ -84,6 +84,7 @@ namespace Woodlands_Prototype_Insy7315.Services
         private class LoginResponse
         {
             public AppUser? User { get; set; }
+            public string? Token { get; set; }
         }
         private class ErrorResponse
         {
