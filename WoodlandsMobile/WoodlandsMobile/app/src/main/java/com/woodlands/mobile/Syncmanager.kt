@@ -95,25 +95,58 @@ object SyncManager {
     }
 
     private fun doLogin(email: String, password: String): Result<AppUser> {
-        val body = JSONObject().put("email", email.trim()).put("password", password)
+        val body = JSONObject()
+            .put("email", email.trim())
+            .put("password", password)
+
         return when (val r = ApiClient.post("/api/auth/login", body.toString())) {
             is ApiResult.Success -> try {
-                val profile = JSONObject(r.body).getJSONObject("user")
+                val response = JSONObject(r.body)
+
+                // The API returns both the user profile and JWT.
+                val profile = response.getJSONObject("user")
+                val token = response.optString("token").trim()
+
+                if (token.isBlank()) {
+                    return Result.failure(
+                        Exception("The server did not return an authentication token.")
+                    )
+                }
+
                 val db = LocalDb.shared(appContext)
                 db.upsertUser(profile)
+
                 val user = db.findUserById(profile.getString("id"))
+
                 if (user == null) {
                     Result.failure(Exception("Could not read your profile."))
                 } else {
-                    Session(appContext).userId = user.id
+                    // Save the JWT before making authenticated API requests.
+                    val session = Session(appContext)
+                    session.userId = user.id
+                    session.token = token
+
                     syncAll()
+
                     Result.success(user)
                 }
             } catch (e: JSONException) {
-                Result.failure(Exception("Unexpected response from the server."))
+                Result.failure(
+                    Exception("Unexpected response from the server.")
+                )
+            } catch (e: Exception) {
+                Result.failure(
+                    Exception(e.message ?: "Sign-in failed.")
+                )
             }
-            is ApiResult.Failure -> Result.failure(Exception(r.message))
-            is ApiResult.Offline -> Result.failure(Exception("You're offline. Connect to the internet to sign in."))
+
+            is ApiResult.Failure ->
+                Result.failure(Exception(r.message))
+
+            is ApiResult.Offline ->
+                Result.failure(
+                    Exception("You're offline. Connect to the internet to sign in.")
+                )
         }
     }
 

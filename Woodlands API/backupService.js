@@ -1,342 +1,1202 @@
+
 const cron = require('node-cron');
 const zlib = require('zlib');
+const crypto = require('crypto');
 const { promisify } = require('util');
+
 const gzip = promisify(zlib.gzip);
 
-const BUCKET = process.env.BACKUP_BUCKET || 'woodlands-backups';
-const RETENTION = Math.max(1, parseInt(process.env.BACKUP_RETENTION, 10) || 14);
-const MAX_AGE_HOURS = parseInt(process.env.BACKUP_MAX_AGE_HOURS, 10) || 26;
+const BUCKET =
+    process.env.BACKUP_BUCKET || 'woodlands-backups';
+
+const RETENTION = Math.max(
+    1,
+    parseInt(process.env.BACKUP_RETENTION, 10) || 14
+);
+
+const MAX_AGE_HOURS = Math.max(
+    1,
+    parseInt(process.env.BACKUP_MAX_AGE_HOURS, 10) || 26
+);
+
 const PREFIX = 'woodlands-backup-';
 const PAGE = 1000;
+const BATCH_SIZE = 500;
+const DELETE_BATCH_SIZE = 100;
 
-const DEFAULT_CRON = process.env.BACKUP_CRON || '0 12 * * *';   // 12:00 daily
-const DEFAULT_TZ = process.env.BACKUP_TIMEZONE || 'Africa/Johannesburg';
-const SETTINGS_FILE = 'backup-settings.json'; // doesn't start with PREFIX, so it is never listed or pruned as a backup
+const DEFAULT_CRON =
+    process.env.BACKUP_CRON || '0 12 * * *';
+
+const DEFAULT_TZ =
+    process.env.BACKUP_TIMEZONE || 'Africa/Johannesburg';
+
+const SETTINGS_FILE = 'backup-settings.json';
+
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
+// Parents first for restoration.
+// Reverse order for rollback deletion.
+//
+// Confirmed database relationships:
+// email_change_requests -> app_users
+// pending_email_changes -> app_users
+// notifications -> app_users
+// product_deletion_requests -> app_users
+// products -> app_users
+// quote_requests -> app_users
+// services -> app_users
+//
+// No other foreign-key dependencies were returned
+// by the supplied database schema query.
 const TABLES = [
-    'app_users', 'branches', 'products', 'services', 'faqs', 'testimonials',
-    'homepage_assets', 'quote_requests', 'deletion_requests', 'account_archive'
+    'app_users',
+    'branches',
+    'products',
+    'services',
+    'faqs',
+    'testimonials',
+    'homepage_assets',
+    'quote_requests',
+    'deletion_requests',
+    'account_archive',
+    'email_change_requests',
+    'pending_email_changes',
+    'notifications',
+    'product_deletion_requests'
 ];
-// Never write one-time restore-code hashes into a backup file
-const STRIP_COLUMNS = { account_archive: ['code_hash', 'code_expires_at', 'code_sent_at', 'code_attempts'] };
+
+// Never preserve or restore active one-time recovery credentials.
+const STRIP_COLUMNS = {
+    account_archive: [
+        'code_hash',
+        'code_expires_at',
+        'code_sent_at',
+        'code_attempts'
+    ]
+};
+
+function isPlainObject(value) {
+    return value !== null &&
+        typeof value === 'object' &&
+        !Array.isArray(value);
+}
+
+function cleanRows(table, rows) {
+    const strip = STRIP_COLUMNS[table] || [];
+
+    return rows.map(row => {
+        const clean = { ...row };
+
+        for (const column of strip) {
+            delete clean[column];
+        }
+
+        return clean;
+    });
+}
+
+function validateSnapshotRows(table, rows) {
+    if (!Array.isArray(rows)) {
+        throw new Error(
+            `Snapshot table "${table}" must contain an array.`
+        );
+    }
+
+    const seenIds = new Set();
+
+    rows.forEach((row, index) => {
+        if (!isPlainObject(row)) {
+            throw new Error(
+                `Invalid row at index ${index} in table "${table}".`
+            );
+        }
+
+        if (
+            row.id === undefined ||
+            row.id === null ||
+            (typeof row.id !== 'string' && typeof row.id !== 'number') ||
+            (typeof row.id === 'number' && !Number.isFinite(row.id))
+        ) {
+            throw new Error(
+                `Invalid ID at index ${index} in table "${table}".`
+            );
+        }
+
+        const id = String(row.id);
+
+        if (seenIds.has(id)) {
+            throw new Error(
+                `Duplicate ID "${id}" in table "${table}".`
+            );
+        }
+
+        seenIds.add(id);
+    });
+
+    return rows;
+}
 
 module.exports = function createBackupService(app, supabase, auth) {
     let running = false;
-    let last = null; // summary of the most recent run in this process
-    let task = null; // the running cron job
-    let settings = { enabled: process.env.BACKUP_ENABLED !== 'false', cron: DEFAULT_CRON };
+    let last = null;
+    let task = null;
 
-    function cronToTime(expr) {
-        const m = /^(\d{1,2}) (\d{1,2}) \* \* \*$/.exec(expr);
-        return m ? `${m[2].padStart(2, '0')}:${m[1].padStart(2, '0')}` : null;
-    }
+    let settings = {
+        enabled: process.env.BACKUP_ENABLED !== 'false',
+        cron: DEFAULT_CRON
+    };
 
-    // Saved admin settings override the environment defaults
-    async function loadSettings() {
-        try {
-            await ensureBucket();
-            const { data, error } = await supabase.storage.from(BUCKET).download(SETTINGS_FILE);
-            if (error || !data) return; // nothing saved yet - keep the defaults
-            const saved = JSON.parse(await data.text());
-            if (typeof saved.enabled === 'boolean') settings.enabled = saved.enabled;
-            if (typeof saved.cron === 'string' && cron.validate(saved.cron)) settings.cron = saved.cron;
-        } catch (e) { console.error('[backup] could not load settings, using defaults:', e.message); }
-    }
+    function cronToTime(expression) {
+        const match =
+            /^(\d{1,2}) (\d{1,2}) \* \* \*$/.exec(expression);
 
-    async function saveSettings(updatedBy) {
-        const body = Buffer.from(JSON.stringify({ ...settings, updated_by: updatedBy, updated_at: new Date().toISOString() }));
-        const up = await supabase.storage.from(BUCKET)
-            .upload(SETTINGS_FILE, body, { contentType: 'application/json', upsert: true });
-        if (up.error) throw new Error('Could not save settings: ' + up.error.message);
-    }
-
-    // (Re)starts the cron job from the current settings
-    function applySchedule() {
-        if (task) { task.stop(); task = null; }
-        if (!settings.enabled) { console.log('[backup] scheduler disabled'); return; }
-        if (!cron.validate(settings.cron)) {
-            console.error(`[backup] invalid schedule "${settings.cron}" - scheduler not started`);
-            return;
-        }
-        task = cron.schedule(settings.cron, () => { runBackup('schedule'); }, { timezone: DEFAULT_TZ });
-        console.log(`[backup] scheduled "${settings.cron}" (${DEFAULT_TZ}), keeping ${RETENTION} backups`);
+        return match
+            ? `${match[2].padStart(2, '0')}:${match[1].padStart(2, '0')}`
+            : null;
     }
 
     async function ensureBucket() {
-        const { data, error } = await supabase.storage.listBuckets();
-        if (error) throw new Error('Cannot list storage buckets: ' + error.message);
-        if (!data.some(b => b.name === BUCKET)) {
-            const created = await supabase.storage.createBucket(BUCKET, { public: false });
-            if (created.error) throw new Error('Cannot create backup bucket: ' + created.error.message);
-            console.log(`[backup] created private bucket "${BUCKET}"`);
+        const { data, error } =
+            await supabase.storage.listBuckets();
+
+        if (error) {
+            throw new Error(
+                'Cannot list storage buckets: ' + error.message
+            );
+        }
+
+        const exists = (data || []).some(
+            bucket => bucket.name === BUCKET
+        );
+
+        if (!exists) {
+            const created = await supabase.storage.createBucket(
+                BUCKET,
+                { public: false }
+            );
+
+            if (created.error) {
+                throw new Error(
+                    'Cannot create backup bucket: ' +
+                    created.error.message
+                );
+            }
+
+            console.log(
+                `[backup] created private bucket "${BUCKET}"`
+            );
+        }
+    }
+
+    async function loadSettings() {
+        try {
+            await ensureBucket();
+
+            const { data, error } =
+                await supabase.storage
+                    .from(BUCKET)
+                    .download(SETTINGS_FILE);
+
+            if (error || !data) {
+                return;
+            }
+
+            const saved = JSON.parse(await data.text());
+
+            if (typeof saved.enabled === 'boolean') {
+                settings.enabled = saved.enabled;
+            }
+
+            if (
+                typeof saved.cron === 'string' &&
+                cron.validate(saved.cron)
+            ) {
+                settings.cron = saved.cron;
+            }
+        } catch (error) {
+            console.error(
+                '[backup] could not load settings; using defaults:',
+                error.message
+            );
+        }
+    }
+
+    async function saveSettings(updatedBy) {
+        const body = Buffer.from(JSON.stringify({
+            ...settings,
+            updated_by: updatedBy,
+            updated_at: new Date().toISOString()
+        }));
+
+        const { error } = await supabase.storage
+            .from(BUCKET)
+            .upload(SETTINGS_FILE, body, {
+                contentType: 'application/json',
+                upsert: true
+            });
+
+        if (error) {
+            throw new Error(
+                'Could not save settings: ' + error.message
+            );
+        }
+    }
+
+    function applySchedule() {
+        if (task) {
+            task.stop();
+            task = null;
+        }
+
+        if (!settings.enabled) {
+            console.log('[backup] scheduler disabled');
+            return;
+        }
+
+        if (!cron.validate(settings.cron)) {
+            console.error(
+                `[backup] invalid schedule "${settings.cron}"`
+            );
+            return;
+        }
+
+        try {
+            task = cron.schedule(
+                settings.cron,
+                () => {
+                    runBackup('schedule').catch(error => {
+                        console.error(
+                            '[backup] scheduled backup error:',
+                            error.message
+                        );
+                    });
+                },
+                { timezone: DEFAULT_TZ }
+            );
+
+            console.log(
+                `[backup] scheduled "${settings.cron}" ` +
+                `(${DEFAULT_TZ}), keeping ${RETENTION} backups`
+            );
+        } catch (error) {
+            task = null;
+
+            console.error(
+                '[backup] could not apply schedule:',
+                error.message
+            );
         }
     }
 
     async function exportTable(table) {
         const rows = [];
+
         for (let from = 0; ; from += PAGE) {
-            const { data, error } = await supabase.from(table).select('*').range(from, from + PAGE - 1);
-            if (error) throw new Error(error.message);
-            rows.push(...data);
-            if (data.length < PAGE) break;
+            const { data, error } = await supabase
+                .from(table)
+                .select('*')
+                .order('id', { ascending: true })
+                .range(from, from + PAGE - 1);
+
+            if (error) {
+                throw new Error(error.message);
+            }
+
+            const pageRows = data || [];
+
+            rows.push(...pageRows);
+
+            if (pageRows.length < PAGE) {
+                break;
+            }
         }
-        const strip = STRIP_COLUMNS[table];
-        return strip ? rows.map(r => { const c = { ...r }; strip.forEach(k => delete c[k]); return c; }) : rows;
+
+        return cleanRows(table, rows);
     }
 
     async function listBackups() {
-        const { data, error } = await supabase.storage.from(BUCKET)
-            .list('', { limit: 1000, sortBy: { column: 'created_at', order: 'desc' } });
-        if (error) throw new Error(error.message);
-        return (data || [])
-            .filter(f => f.name.startsWith(PREFIX))
-            .map(f => ({ name: f.name, size: (f.metadata && f.metadata.size) || null, created_at: f.created_at }));
+        const backups = [];
+
+        for (let offset = 0; ; offset += PAGE) {
+            const { data, error } = await supabase.storage
+                .from(BUCKET)
+                .list('', {
+                    limit: PAGE,
+                    offset,
+                    sortBy: {
+                        column: 'created_at',
+                        order: 'desc'
+                    }
+                });
+
+            if (error) {
+                throw new Error(
+                    'Could not list backups: ' + error.message
+                );
+            }
+
+            const files = data || [];
+
+            backups.push(
+                ...files
+                    .filter(file =>
+                        file.name &&
+                        file.name.startsWith(PREFIX)
+                    )
+                    .map(file => ({
+                        name: file.name,
+                        size: file.metadata?.size || null,
+                        created_at: file.created_at
+                    }))
+            );
+
+            if (files.length < PAGE) {
+                break;
+            }
+        }
+
+        return backups;
     }
 
     async function prune() {
-        const all = await listBackups(); // newest first
-        const old = all.slice(RETENTION).map(f => f.name);
-        if (old.length) {
-            const { error } = await supabase.storage.from(BUCKET).remove(old);
-            if (error) console.error('[backup] prune failed:', error.message);
-            else console.log(`[backup] removed ${old.length} old backup(s)`);
+        const all = await listBackups();
+
+        const old = all
+            .slice(RETENTION)
+            .map(file => file.name);
+
+        if (old.length > 0) {
+            const { error } = await supabase.storage
+                .from(BUCKET)
+                .remove(old);
+
+            if (error) {
+                console.error(
+                    '[backup] prune failed:',
+                    error.message
+                );
+
+                return 0;
+            }
+
+            console.log(
+                `[backup] removed ${old.length} old backup(s)`
+            );
         }
+
         return old.length;
     }
 
-    async function runBackup(trigger = 'schedule') {
-        if (running) return { skipped: true, reason: 'A backup is already running.' };
-        running = true;
+    // Normal backups acquire their own lock.
+    // A safety backup during rollback reuses the import lock.
+    async function runBackup(
+        trigger = 'schedule',
+        { lockAlreadyHeld = false } = {}
+    ) {
+        if (running && !lockAlreadyHeld) {
+            return {
+                ok: false,
+                skipped: true,
+                reason: 'A backup or import is already running.'
+            };
+        }
+
+        if (lockAlreadyHeld && !running) {
+            return {
+                ok: false,
+                skipped: true,
+                reason: 'The expected import lock is not held.'
+            };
+        }
+
+        if (!lockAlreadyHeld) {
+            running = true;
+        }
+
         const startedAt = new Date();
+
         try {
             await ensureBucket();
+
+            const selected = TABLES;
             const data = {};
             const counts = {};
             const errors = {};
-            for (const table of TABLES) {
+
+            for (const table of selected) {
                 try {
                     data[table] = await exportTable(table);
+
+                    validateSnapshotRows(table, data[table]);
+
                     counts[table] = data[table].length;
-                } catch (e) {
-                    errors[table] = e.message;
-                    console.error(`[backup] table ${table} failed: ${e.message}`);
+                } catch (error) {
+                    errors[table] = error.message;
                 }
             }
-            if (Object.keys(data).length === 0) throw new Error('No tables could be exported.');
 
-            const meta = { version: 1, created_at: startedAt.toISOString(), trigger, counts, errors };
-            const file = await gzip(Buffer.from(JSON.stringify({ meta, data })));
-            const name = `${PREFIX}${startedAt.toISOString().replace(/[:.]/g, '-')}.json.gz`;
+            // Never upload a backup that silently omits failed tables.
+            if (Object.keys(errors).length > 0) {
+                throw Object.assign(
+                    new Error(
+                        'Backup aborted because one or more tables could not be exported.'
+                    ),
+                    { tableErrors: errors }
+                );
+            }
 
-            const up = await supabase.storage.from(BUCKET)
-                .upload(name, file, { contentType: 'application/gzip', upsert: false });
-            if (up.error) throw new Error('Upload failed: ' + up.error.message);
+            const meta = {
+                version: 2,
+                created_at: startedAt.toISOString(),
+                trigger,
+                tables: TABLES,
+                counts
+            };
+
+            const contents = Buffer.from(
+                JSON.stringify({ meta, data })
+            );
+
+            const file = await gzip(contents);
+
+            const timestamp = startedAt.toISOString()
+                .replace(/[:.]/g, '-');
+
+            const randomSuffix = crypto
+                .randomBytes(4)
+                .toString('hex');
+
+            const name =
+                `${PREFIX}${timestamp}-${randomSuffix}.json.gz`;
+
+            const { error: uploadError } =
+                await supabase.storage
+                    .from(BUCKET)
+                    .upload(name, file, {
+                        contentType: 'application/gzip',
+                        upsert: false
+                    });
+
+            if (uploadError) {
+                throw new Error(
+                    'Upload failed: ' + uploadError.message
+                );
+            }
 
             const pruned = await prune();
-            last = { ok: true, name, trigger, at: startedAt.toISOString(), bytes: file.length, counts, errors, pruned };
-            console.log(`[backup] OK ${name} (${file.length} bytes) tables=${JSON.stringify(counts)}`);
+
+            last = {
+                ok: true,
+                name,
+                trigger,
+                at: startedAt.toISOString(),
+                bytes: file.length,
+                counts,
+                pruned
+            };
+
+            console.log(
+                `[backup] OK ${name}; ` +
+                `tables=${JSON.stringify(counts)}`
+            );
+
             return last;
-        } catch (e) {
-            last = { ok: false, trigger, at: startedAt.toISOString(), error: e.message };
-            console.error('[backup] FAILED:', e.message);
+        } catch (error) {
+            last = {
+                ok: false,
+                trigger,
+                at: startedAt.toISOString(),
+                error: error.message,
+                table_errors: error.tableErrors || {}
+            };
+
+            console.error(
+                '[backup] FAILED:',
+                error.message
+            );
+
             return last;
+        } finally {
+            if (!lockAlreadyHeld) {
+                running = false;
+            }
+        }
+    }
+
+    // Admin-only backup listing.
+    app.get(
+        '/api/admin/backups',
+        auth.requireRole('Admin'),
+        async (req, res) => {
+            try {
+                return res.json({
+                    bucket: BUCKET,
+                    retention: RETENTION,
+                    enabled: settings.enabled,
+                    schedule: settings.cron,
+                    time: cronToTime(settings.cron),
+                    timezone: DEFAULT_TZ,
+                    last_run: last,
+                    backups: await listBackups()
+                });
+            } catch (error) {
+                return res.status(500).json({
+                    error: error.message
+                });
+            }
+        }
+    );
+
+    // Run a manual backup.
+    app.post(
+        '/api/admin/backups/run',
+        auth.requireRole('Admin'),
+        async (req, res) => {
+            const result = await runBackup(
+                'manual:' + (req.user?.email || 'Admin')
+            );
+
+            const status = result.ok
+                ? 201
+                : result.skipped
+                    ? 409
+                    : 500;
+
+            return res.status(status).json(result);
+        }
+    );
+
+    // Change the daily backup time or enable/disable the scheduler.
+    app.put(
+        '/api/admin/backups/schedule',
+        auth.requireRole('Admin'),
+        async (req, res) => {
+            const body = req.body || {};
+
+            const has = key =>
+                Object.prototype.hasOwnProperty.call(body, key);
+
+            if (!has('time') && !has('enabled')) {
+                return res.status(400).json({
+                    error: 'Nothing to update.'
+                });
+            }
+
+            const next = { ...settings };
+
+            if (has('enabled')) {
+                if (typeof body.enabled !== 'boolean') {
+                    return res.status(400).json({
+                        error: 'enabled must be true or false.'
+                    });
+                }
+
+                next.enabled = body.enabled;
+            }
+
+            if (has('time')) {
+                const match = TIME_RE.exec(String(body.time));
+
+                if (!match) {
+                    return res.status(400).json({
+                        error: 'time must be 24-hour HH:MM, e.g. "12:00".'
+                    });
+                }
+
+                next.cron =
+                    `${parseInt(match[2], 10)} ` +
+                    `${parseInt(match[1], 10)} * * *`;
+            }
+
+            const previous = settings;
+
+            try {
+                settings = next;
+                await saveSettings(req.user?.email || 'Admin');
+            } catch (error) {
+                settings = previous;
+
+                return res.status(500).json({
+                    error: error.message
+                });
+            }
+
+            applySchedule();
+
+            auth.audit('backup_schedule_changed', req, {
+                cron: settings.cron,
+                enabled: settings.enabled
+            });
+
+            return res.json({
+                enabled: settings.enabled,
+                schedule: settings.cron,
+                time: cronToTime(settings.cron),
+                timezone: DEFAULT_TZ
+            });
+        }
+    );
+
+    async function liveIds(table) {
+        const ids = [];
+
+        for (let from = 0; ; from += PAGE) {
+            const { data, error } = await supabase
+                .from(table)
+                .select('id')
+                .order('id', { ascending: true })
+                .range(from, from + PAGE - 1);
+
+            if (error) {
+                throw new Error(
+                    `Could not retrieve IDs from "${table}": ${error.message}`
+                );
+            }
+
+            const rows = data || [];
+
+            ids.push(
+                ...rows.map(row => String(row.id))
+            );
+
+            if (rows.length < PAGE) {
+                break;
+            }
+        }
+
+        return ids;
+    }
+
+    async function liveAdminIds() {
+        const ids = new Set();
+
+        for (let from = 0; ; from += PAGE) {
+            const { data, error } = await supabase
+                .from('app_users')
+                .select('id')
+                .ilike('role', 'admin')
+                .order('id', { ascending: true })
+                .range(from, from + PAGE - 1);
+
+            if (error) {
+                throw new Error(
+                    'Could not retrieve existing Admin accounts: ' +
+                    error.message
+                );
+            }
+
+            const rows = data || [];
+
+            for (const user of rows) {
+                ids.add(String(user.id));
+            }
+
+            if (rows.length < PAGE) {
+                break;
+            }
+        }
+
+        return ids;
+    }
+
+   // Export current data. Admin only.
+app.get(
+    '/api/admin/export',
+    auth.requireRole('Admin'),
+    async (req, res) => {
+        if (running) {
+            return res.status(409).json({
+                error: 'A backup or import is already running. Please try again later.'
+            });
+        }
+
+        running = true;
+
+        try {
+            const only =
+                typeof req.query.table === 'string' &&
+                req.query.table.trim()
+                    ? req.query.table.trim()
+                    : null;
+
+            if (only && !TABLES.includes(only)) {
+                return res.status(400).json({
+                    error: 'Unknown table.'
+                });
+            }
+
+            const selected = only ? [only] : TABLES;
+            const data = {};
+            const counts = {};
+            const errors = {};
+
+            for (const table of selected) {
+                try {
+                    data[table] = await exportTable(table);
+
+                    validateSnapshotRows(table, data[table]);
+
+                    counts[table] = data[table].length;
+                } catch (error) {
+                    errors[table] = error.message;
+                }
+            }
+
+            if (Object.keys(errors).length > 0) {
+                return res.status(500).json({
+                    error: 'Export failed. No complete export was produced.',
+                    table_errors: errors
+                });
+            }
+
+            auth.audit('backup_export', req, {
+                tables: selected.join(',')
+            });
+
+            return res.json({
+                counts,
+                data
+            });
+        } catch (error) {
+            console.error('[backup] export failed:', error.message);
+
+            return res.status(500).json({
+                error: 'The export could not be completed.'
+            });
         } finally {
             running = false;
         }
     }
+);
+    // Import / restore / rollback.
+    app.post(
+        '/api/admin/import',
+        auth.requireRole('Admin'),
+        async (req, res) => {
+            const body = req.body || {};
 
-    //  Admin-only endpoints 
-    app.get('/api/admin/backups', auth.requireRole('Admin'), async (req, res) => {
-        try {
-            res.json({
-                bucket: BUCKET, retention: RETENTION,
-                                enabled: settings.enabled,
-                schedule: settings.cron,
-                time: cronToTime(settings.cron),
-                timezone: DEFAULT_TZ,
-                last_run: last, backups: await listBackups()
-            });
-        } catch (e) { res.status(500).json({ error: e.message }); }
-    });
+            const {
+                data,
+                mode,
+                table,
+                dryRun,
+                confirm
+            } = body;
 
-    app.post('/api/admin/backups/run', auth.requireRole('Admin'), async (req, res) => {
-        const result = await runBackup('manual:' + req.user.email);
-        res.status(result.ok ? 201 : result.skipped ? 409 : 500).json(result);
-    });
-
-        // Admin changes the daily backup time and/or switches the scheduler on or off
-    app.put('/api/admin/backups/schedule', auth.requireRole('Admin'), async (req, res) => {
-        const body = req.body || {};
-        const has = (k) => Object.prototype.hasOwnProperty.call(body, k);
-        if (!has('time') && !has('enabled')) return res.status(400).json({ error: 'Nothing to update.' });
-
-        const next = { ...settings };
-        if (has('enabled')) {
-            if (typeof body.enabled !== 'boolean') return res.status(400).json({ error: 'enabled must be true or false.' });
-            next.enabled = body.enabled;
-        }
-        if (has('time')) {
-            const m = TIME_RE.exec(String(body.time));
-            if (!m) return res.status(400).json({ error: 'time must be 24-hour HH:MM, e.g. "12:00".' });
-            next.cron = `${parseInt(m[2], 10)} ${parseInt(m[1], 10)} * * *`;
-        }
-
-        const previous = settings;
-        try {
-            settings = next;
-            await saveSettings(req.user.email);
-        } catch (e) {
-            settings = previous; // keep the old schedule if it could not be saved
-            return res.status(500).json({ error: e.message });
-        }
-        applySchedule();
-        auth.audit('backup_schedule_changed', req, { cron: settings.cron, enabled: settings.enabled });
-        res.json({ enabled: settings.enabled, schedule: settings.cron, time: cronToTime(settings.cron), timezone: DEFAULT_TZ });
-    });
-
-    // Used by the website's Backups page (admin only)
-
-    // Current ids of one table (used to work out what a restore or rollback would add, overwrite or delete)
-    async function liveIds(table) {
-        const ids = [];
-        for (let from = 0; ; from += PAGE) {
-            const { data, error } = await supabase.from(table).select('id').order('id').range(from, from + PAGE - 1);
-            if (error) throw new Error(error.message);
-            ids.push(...data.map(r => String(r.id)));
-            if (data.length < PAGE) break;
-        }
-        return ids;
-    }
-
-    // The live data of every table (or only ?table=name), straight from the database
-    app.get('/api/admin/export', auth.requireRole('Admin'), async (req, res) => {
-        try {
-            const only = typeof req.query.table === 'string' && req.query.table ? req.query.table : null;
-            if (only && !TABLES.includes(only)) return res.status(400).json({ error: 'Unknown table.' });
-            const data = {};
-            const counts = {};
-            const errors = {};
-            for (const table of TABLES) {
-                if (only && only !== table) continue;
-                try {
-                    data[table] = await exportTable(table);
-                    counts[table] = data[table].length;
-                } catch (e) { errors[table] = e.message; }
+            if (!isPlainObject(data)) {
+                return res.status(400).json({
+                    error: 'A valid snapshot data object is required.'
+                });
             }
-            if (Object.keys(data).length === 0) return res.status(500).json({ error: 'No tables could be exported.' });
-            auth.audit('backup_export', req, { tables: Object.keys(data).join(',') });
-            res.json({ counts, errors, data });
-        } catch (e) { res.status(500).json({ error: e.message }); }
-    });
 
-    // Writes snapshot data back into the database.
+            if (!['restore', 'rollback'].includes(mode)) {
+                return res.status(400).json({
+                    error: 'mode must be "restore" or "rollback".'
+                });
+            }
 
-    //   mode "restore"  : rows in the snapshot are written back (same id = overwritten); nothing is deleted
-    //   mode "rollback" : the same, and rows that are NOT in the snapshot are deleted
+            if (
+                table !== undefined &&
+                table !== null &&
+                (typeof table !== 'string' ||
+                    !TABLES.includes(table))
+            ) {
+                return res.status(400).json({
+                    error: 'Unknown table.'
+                });
+            }
 
-    app.post('/api/admin/import', auth.requireRole('Admin'), async (req, res) => {
-        const { data, mode, table, dryRun } = req.body || {};
-        if (!data || typeof data !== 'object' || Array.isArray(data)) return res.status(400).json({ error: 'No data supplied.' });
-        if (mode !== 'restore' && mode !== 'rollback') return res.status(400).json({ error: 'mode must be "restore" or "rollback".' });
-        if (table && !TABLES.includes(table)) return res.status(400).json({ error: 'Unknown table.' });
+            if (
+                dryRun !== undefined &&
+                typeof dryRun !== 'boolean'
+            ) {
+                return res.status(400).json({
+                    error: 'dryRun must be true or false.'
+                });
+            }
 
-        const wanted = TABLES.filter(t => Array.isArray(data[t]) && (!table || table === t));
-        if (wanted.length === 0) return res.status(400).json({ error: 'The snapshot has no rows for that table.' });
+            if (
+                confirm !== undefined &&
+                typeof confirm !== 'boolean'
+            ) {
+                return res.status(400).json({
+                    error: 'confirm must be true or false.'
+                });
+            }
 
-        const apply = dryRun !== true;
-        if (apply) {
-            if (running) return res.status(409).json({ error: 'A backup is running. Try again in a moment.' });
-            running = true;
-        }
-        try {
-            const me = String(req.user.id);
-            const report = {};
-            const plan = {};
+            const unknownTables = Object.keys(data)
+                .filter(key => !TABLES.includes(key));
 
-            for (const t of wanted) {
-                const all = data[t];
-                if (all.some(r => !r || r.id === undefined || r.id === null)) {
-                    report[t] = { error: 'Some rows have no id.' };
-                    continue;
+            if (unknownTables.length > 0) {
+                return res.status(400).json({
+                    error: 'The snapshot contains unsupported tables.',
+                    tables: unknownTables
+                });
+            }
+
+            const wanted = TABLES.filter(
+                name =>
+                    Object.prototype.hasOwnProperty.call(data, name) &&
+                    (!table || table === name)
+            );
+
+            if (wanted.length === 0) {
+                return res.status(400).json({
+                    error: 'The snapshot has no supported tables to process.'
+                });
+            }
+
+            if (table && !wanted.includes(table)) {
+                return res.status(400).json({
+                    error: 'The selected table is missing from the snapshot.'
+                });
+            }
+
+            const apply = dryRun === false && confirm === true;
+
+            if (dryRun === false && confirm !== true) {
+                return res.status(400).json({
+                    error: 'Applying a restore requires confirm: true.',
+                    dry_run: true
+                });
+            }
+
+            // A full rollback involving app_users must include every table.
+            if (
+                mode === 'rollback' &&
+                wanted.includes('app_users') &&
+                (
+                    !!table ||
+                    TABLES.some(name =>
+                        !Object.prototype.hasOwnProperty.call(data, name)
+                    )
+                )
+            ) {
+                return res.status(400).json({
+                    error:
+                        'Rolling back app_users requires a complete snapshot ' +
+                        'containing every supported table and no table filter.'
+                });
+            }
+
+            // Validate all selected tables before acquiring a lock or writing.
+            try {
+                for (const name of wanted) {
+                    validateSnapshotRows(name, data[name]);
                 }
-                const now = await liveIds(t);
-                const nowSet = new Set(now);
-                const snapIds = new Set(all.map(r => String(r.id)));
-                const rows = t === 'app_users' ? all.filter(r => String(r.id) !== me) : all;
-                const toAdd = rows.filter(r => !nowSet.has(String(r.id))).length;
-                const toDelete = mode === 'rollback'
-                    ? now.filter(id => !snapIds.has(id) && !(t === 'app_users' && id === me))
-                    : [];
-                plan[t] = { rows, toDelete };
-                report[t] = {
-                    in_snapshot: all.length, in_database: now.length,
-                    to_add: toAdd, to_update: rows.length - toAdd, to_delete: toDelete.length
-                };
+            } catch (error) {
+                return res.status(400).json({
+                    error: error.message
+                });
+            }
+
+            // Acquire the lock synchronously before the first await.
+            if (apply && running) {
+                return res.status(409).json({
+                    error: 'A backup or import is already running.'
+                });
             }
 
             if (apply) {
-                // write rows back (parents first)
-                for (const t of wanted) {
-                    if (!plan[t]) continue;
-                    const { rows } = plan[t];
-                    for (let i = 0; i < rows.length; i += 500) {
-                        const { error } = await supabase.from(t).upsert(rows.slice(i, i + 500), { onConflict: 'id' });
-                        if (error) { report[t].error = error.message; break; }
+                running = true;
+            }
+
+            try {
+                let safetyBackup = null;
+
+                if (apply) {
+                safetyBackup = await runBackup(
+                    `pre-${mode}:` +
+                    (req.user?.email || 'Admin'),
+                    { lockAlreadyHeld: true }
+                );
+                    if (!safetyBackup.ok) {
+                        return res.status(503).json({
+                            error:
+                                `The ${mode} was stopped because a complete safety ` +
+                                'backup could not be created.',
+                            backup: safetyBackup
+                        });
                     }
                 }
-                // rollback only: delete rows that are not in the snapshot (children first)
-                if (mode === 'rollback') {
-                    for (const t of [...wanted].reverse()) {
-                        if (!plan[t] || report[t].error) continue;
-                        const { toDelete } = plan[t];
-                        for (let i = 0; i < toDelete.length; i += 100) {
-                            const { error } = await supabase.from(t).delete().in('id', toDelete.slice(i, i + 100));
-                            if (error) { report[t].error = error.message; break; }
+
+                const report = {};
+                const plan = {};
+
+                const protectedAdmins = wanted.includes('app_users')
+                    ? await liveAdminIds()
+                    : new Set();
+
+                // Build the complete plan before making any database changes.
+                for (const name of wanted) {
+                    const snapshotRows = data[name];
+
+                    const now = await liveIds(name);
+                    const nowSet = new Set(now);
+
+                    let cleaned = cleanRows(name, snapshotRows);
+
+// Never restore active one-time recovery credentials.
+// Exported backups intentionally omit these fields.
+if (name === 'account_archive') {
+    cleaned = cleaned.map(row => ({
+        ...row,
+        code_hash: null,
+        code_expires_at: null,
+        code_sent_at: null,
+        code_attempts: 0
+    }));
+}
+
+// Never overwrite existing Admins or introduce new Admins.
+const rows = name === 'app_users'
+    ? cleaned.filter(row => {
+        const userId = String(row.id);
+
+        const isExistingAdmin =
+            protectedAdmins.has(userId);
+
+        const isAdminRole =
+            String(row.role || '')
+                .trim()
+                .toLowerCase() === 'admin';
+
+        return !isExistingAdmin && !isAdminRole;
+    })
+    : cleaned;
+
+                    const snapshotIds = new Set(
+                        cleaned.map(row => String(row.id))
+                    );
+
+                    const toAdd = rows.filter(
+                        row => !nowSet.has(String(row.id))
+                    ).length;
+
+                    const toUpdate = rows.length - toAdd;
+
+                    const toDelete = mode === 'rollback'
+                    ? now.filter(id =>
+                        !snapshotIds.has(id) &&
+                        !(
+                            name === 'app_users' &&
+                            protectedAdmins.has(id)
+                        )
+                    )
+                    : [];
+
+                    plan[name] = {
+                        rows,
+                        toDelete
+                    };
+
+                    report[name] = {
+                        in_snapshot: snapshotRows.length,
+                        in_database: now.length,
+                        to_add: toAdd,
+                        to_update: toUpdate,
+                        to_delete: toDelete.length,
+                        protected_admins:
+                            name === 'app_users'
+                                ? protectedAdmins.size
+                                : 0
+                    };
+                }
+
+                if (apply) {
+                    let writeFailed = false;
+
+                    // Restore parents before dependent records.
+                    for (const name of wanted) {
+                        const rows = plan[name].rows;
+
+                        for (
+                            let index = 0;
+                            index < rows.length;
+                            index += BATCH_SIZE
+                        ) {
+                            const batch = rows.slice(
+                                index,
+                                index + BATCH_SIZE
+                            );
+
+                            const { error } = await supabase
+                                .from(name)
+                                .upsert(batch, {
+                                    onConflict: 'id'
+                                });
+
+                            if (error) {
+                                report[name].error = error.message;
+                                writeFailed = true;
+                                break;
+                            }
+                        }
+
+                        if (writeFailed) {
+                            break;
+                        }
+                    }
+
+                    // Never delete records if an upsert failed.
+                    // Rollback deletion is performed in reverse table order.
+                    if (!writeFailed && mode === 'rollback') {
+                        for (const name of [...wanted].reverse()) {
+                            const ids = plan[name].toDelete;
+
+                            for (
+                                let index = 0;
+                                index < ids.length;
+                                index += DELETE_BATCH_SIZE
+                            ) {
+                                const batch = ids.slice(
+                                    index,
+                                    index + DELETE_BATCH_SIZE
+                                );
+
+                                const { error } = await supabase
+                                    .from(name)
+                                    .delete()
+                                    .in('id', batch);
+
+                                if (error) {
+                                    report[name].error = error.message;
+                                    writeFailed = true;
+                                    break;
+                                }
+                            }
+
+                            // Stop all remaining deletions after the first failure.
+                            if (writeFailed) {
+                                break;
+                            }
                         }
                     }
                 }
+
+                const ok = Object.values(report).every(
+                    item => !item.error
+                );
+
+                auth.audit(
+                    apply ? 'backup_import' : 'backup_import_preview',
+                    req,
+                    {
+                        mode,
+                        table: table || 'all',
+                        ok
+                    }
+                );
+
+                const result = {
+                    ok,
+                    dry_run: !apply,
+                    mode,
+                    tables: report
+                };
+
+                if (safetyBackup) {
+                    result.safety_backup = safetyBackup.name;
+                }
+
+                return res.status(ok ? 200 : 500).json(result);
+            } catch (error) {
+                console.error(
+                    '[backup] import failed:',
+                    error.message
+                );
+
+                return res.status(500).json({
+                    error: 'The import could not be completed.',
+                    detail: error.message
+                });
+            } finally {
+                if (apply) {
+                    running = false;
+                }
+            }
+        }
+    );
+
+    // Short-lived download link for a stored backup.
+    app.get(
+        '/api/admin/backups/:name/download',
+        auth.requireRole('Admin'),
+        async (req, res) => {
+            if (
+                !/^woodlands-backup-[\w.-]+\.json\.gz$/.test(
+                    req.params.name
+                )
+            ) {
+                return res.status(400).json({
+                    error: 'Invalid backup name.'
+                });
             }
 
-            const ok = Object.values(report).every(r => !r.error);
-            auth.audit(apply ? 'backup_import' : 'backup_import_preview', req, { mode, table: table || 'all', ok });
-            res.json({ ok, dry_run: !apply, mode, tables: report });
-        } catch (e) {
-            console.error('[backup] import failed:', e.message);
-            res.status(500).json({ error: e.message });
-        } finally {
-            if (apply) running = false;
+            const { data, error } = await supabase.storage
+                .from(BUCKET)
+                .createSignedUrl(req.params.name, 60);
+
+            if (error || !data?.signedUrl) {
+                return res.status(404).json({
+                    error: 'Backup not found.'
+                });
+            }
+
+            return res.json({
+                url: data.signedUrl,
+                expires_in: 60
+            });
         }
-    });
+    );
 
-    // Short-lived (60 s) download link for one backup file
-    app.get('/api/admin/backups/:name/download', auth.requireRole('Admin'), async (req, res) => {
-        if (!/^woodlands-backup-[\w.-]+\.json\.gz$/.test(req.params.name)) return res.status(400).json({ error: 'Invalid backup name.' });
-        const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(req.params.name, 60);
-        if (error) return res.status(404).json({ error: 'Backup not found.' });
-        res.json({ url: data.signedUrl, expires_in: 60 });
-    });
-
-    //  Scheduler
-       async function start() {
+    async function start() {
         await loadSettings();
         applySchedule();
-        if (!settings.enabled) return;
 
-        // Catch-up after a restart / wake-up from sleep
+        if (!settings.enabled) {
+            return;
+        }
+
+        // Catch-up after a restart or sleep.
         setTimeout(async () => {
             try {
-                if (!settings.enabled) return;
-                await ensureBucket();
-                const newest = (await listBackups())[0];
-                const ageHours = newest ? (Date.now() - new Date(newest.created_at).getTime()) / 36e5 : Infinity;
-                if (ageHours > MAX_AGE_HOURS) {
-                    console.log('[backup] latest backup is stale - running catch-up backup');
-                    runBackup('startup-catchup');
+                if (!settings.enabled) {
+                    return;
                 }
-            } catch (e) { console.error('[backup] catch-up check failed:', e.message); }
+
+                await ensureBucket();
+
+                const backups = await listBackups();
+                const newest = backups[0];
+
+                const newestTime = newest
+                    ? new Date(newest.created_at).getTime()
+                    : NaN;
+
+                const ageHours = Number.isFinite(newestTime)
+                    ? (Date.now() - newestTime) / 36e5
+                    : Infinity;
+
+                if (ageHours > MAX_AGE_HOURS) {
+                    console.log(
+                        '[backup] latest backup is stale; running catch-up backup'
+                    );
+
+                    await runBackup('startup-catchup');
+                }
+            } catch (error) {
+                console.error(
+                    '[backup] catch-up check failed:',
+                    error.message
+                );
+            }
         }, 30 * 1000);
     }
 
-    return { start, runBackup, listBackups };
+    return {
+        start,
+        runBackup,
+        listBackups
+    };
 };

@@ -1,0 +1,8 @@
+# Preview only — no database changes
+node restoreBackup.js backup-name.json.gz
+
+# Apply — safety backup is automatically created first
+node restoreBackup.js backup-name.json.gz --apply
+
+# Restore one table — safety backup still includes all 14 tables
+node restoreBackup.js backup-name.json.gz --table products --apply  

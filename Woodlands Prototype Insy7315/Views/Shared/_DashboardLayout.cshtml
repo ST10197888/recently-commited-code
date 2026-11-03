@@ -1,18 +1,14 @@
-@using Microsoft.AspNetCore.Identity
-@using Woodlands_Prototype_Insy7315.Models
-@inject UserManager<ApplicationUser> UserManager
+@using System.Security.Claims
 
 @{
-    var currentUser = await UserManager.GetUserAsync(User);
-    var roles = currentUser == null
-        ? new List<string>()
-        : (await UserManager.GetRolesAsync(currentUser)).ToList();
+    var fullName = User.FindFirst("FullName")?.Value
+        ?? User.FindFirst(ClaimTypes.Name)?.Value
+        ?? User.Identity?.Name
+        ?? "User";
 
-    var role = roles.FirstOrDefault() ?? "User";
+    var role = User.FindFirst(ClaimTypes.Role)?.Value ?? "User";
 
-    string roleLabel = role;
-
-    string roleDescription = role switch
+    var roleDescription = role switch
     {
         "Admin" => "System Admin",
         "Manager (Soweto)" => "Branch Manager · Soweto",
@@ -21,15 +17,23 @@
         "Customer" => "Customer",
         _ => role
     };
+
+    var initials = string.Join("",
+        fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Take(2)
+            .Select(x => x[0]));
+
+    if (string.IsNullOrWhiteSpace(initials))
+    {
+        initials = "U";
+    }
 }
 
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
-
     <meta charset="utf-8" />
-
     <meta name="viewport"
           content="width=device-width, initial-scale=1" />
 
@@ -39,8 +43,9 @@
 
     <partial name="_ThemeHead" />
 
-    <link rel="icon" href="~/Images/brand/woodlands-mark.png" type="image/png" />
-
+    <link rel="icon"
+          href="~/Images/brand/woodlands-mark.png"
+          type="image/png" />
 </head>
 
 <body class="bg-surface">
@@ -48,7 +53,6 @@
     <div class="min-h-screen flex">
 
         <!-- SIDEBAR -->
-
         <aside class="hidden lg:flex flex-col w-64 bg-brand-900 text-white shrink-0">
 
             <div class="px-5 py-6 border-b border-white/10">
@@ -67,29 +71,18 @@
             </div>
 
             <!-- User -->
-
             <div class="mx-4 mt-4 p-3 rounded-lg bg-white/10">
 
                 <div class="flex items-center gap-3">
 
                     <div class="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-white font-bold text-xs">
-                        @{
-                            var initials = currentUser?.FullName
-                                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                                .Take(2)
-                                .Select(x => x[0])
-                                .ToArray();
-
-                            @(initials == null
-                                ? "U"
-                                : new string(initials))
-                        }
+                        @initials
                     </div>
 
                     <div class="min-w-0">
 
                         <p class="text-sm font-semibold truncate">
-                            @currentUser?.FullName
+                            @fullName
                         </p>
 
                         <p class="text-xs text-white/50 truncate">
@@ -103,13 +96,40 @@
             </div>
 
             <!-- Navigation -->
-
             <nav class="flex-1 px-3 py-4 space-y-1">
 
                 <a asp-controller="Dashboard"
                    asp-action="Index"
                    class="block px-3 py-2.5 rounded-lg text-sm text-white/75 hover:text-white hover:bg-white/10">
                     Dashboard
+                </a>
+
+                <!-- Notifications -->
+                <a asp-controller="Notifications"
+                   asp-action="Index"
+                   class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm text-white/75 hover:text-white hover:bg-white/10">
+
+                    <span class="flex items-center gap-3">
+
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                             width="20"
+                             height="20"
+                             viewBox="0 0 24 24"
+                             fill="none"
+                             stroke="currentColor"
+                             stroke-width="2"
+                             stroke-linecap="round"
+                             stroke-linejoin="round">
+                            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+                            <path d="M10 21h4" />
+                        </svg>
+
+                        Notifications
+
+                    </span>
+
+                    @await Component.InvokeAsync("NotificationUnreadCount")
+
                 </a>
 
                 @if (User.IsInRole("Admin") ||
@@ -142,7 +162,6 @@
                     <a asp-controller="Management"
                        asp-action="Products"
                        class="block px-3 py-2.5 rounded-lg text-sm text-white/75 hover:text-white hover:bg-white/10">
-
                         Products
                     </a>
                 }
@@ -152,7 +171,6 @@
                     <a asp-controller="Dashboard"
                        asp-action="Analytics"
                        class="block px-3 py-2.5 rounded-lg text-sm text-white/75 hover:text-white hover:bg-white/10">
-
                         Analytics
                     </a>
                 }
@@ -164,7 +182,6 @@
                     <a asp-controller="Dashboard"
                        asp-action="Customers"
                        class="block px-3 py-2.5 rounded-lg text-sm text-white/75 hover:text-white hover:bg-white/10">
-
                         Customers
                     </a>
                 }
@@ -203,7 +220,6 @@
         </aside>
 
         <!-- MAIN -->
-
         <div class="flex-1 min-w-0">
 
             <header class="h-16 bg-white border-b border-gray-100 flex items-center justify-end px-5 shadow-sm">
@@ -213,7 +229,7 @@
                     <div class="hidden sm:block text-right">
 
                         <p class="text-sm font-semibold text-gray-700">
-                            @currentUser?.FullName
+                            @fullName
                         </p>
 
                         <p class="text-xs text-gray-400">
@@ -223,19 +239,7 @@
                     </div>
 
                     <div class="w-9 h-9 rounded-full bg-brand-700 text-white flex items-center justify-center text-xs font-bold">
-
-                        @{
-                            var topInitials = currentUser?.FullName
-                                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                                .Take(2)
-                                .Select(x => x[0])
-                                .ToArray();
-
-                            @(topInitials == null
-                                ? "U"
-                                : new string(topInitials))
-                        }
-
+                        @initials
                     </div>
 
                 </div>
@@ -243,9 +247,7 @@
             </header>
 
             <main class="p-5 lg:p-8">
-
                 @RenderBody()
-
             </main>
 
         </div>
@@ -255,5 +257,4 @@
     @await RenderSectionAsync("Scripts", required: false)
 
 </body>
-
 </html>

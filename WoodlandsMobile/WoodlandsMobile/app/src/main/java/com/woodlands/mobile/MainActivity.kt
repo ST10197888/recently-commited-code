@@ -112,6 +112,20 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         db = LocalDb.shared(this)
         session = Session(this)
+
+        // Handle expired or rejected API sessions.
+        ApiClient.onUnauthorized = {
+            runOnUiThread {
+                if (!isFinishing && !isDestroyed && session.isLoggedIn) {
+                    session.clear()
+                    toast("Your session has expired. Please sign in again.")
+                    showScreen("login")
+                }
+            }
+        }
+
+        // Restore the saved JWT before any authenticated API requests.
+        session.restoreToken()
         window.statusBarColor = blue
         pageContainer = FrameLayout(this).apply { setBackgroundColor(Color.WHITE) }
         pageContainer.setOnApplyWindowInsetsListener { _, insets ->
@@ -146,7 +160,11 @@ class MainActivity : Activity() {
             WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
         )
     }
-    override fun onDestroy() { super.onDestroy() }
+
+    override fun onDestroy() {
+        ApiClient.onUnauthorized = null
+        super.onDestroy()
+    }
 
     internal var imagePickCallback: ((Uri) -> Unit)? = null
 
