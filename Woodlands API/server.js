@@ -1,12 +1,19 @@
+
 require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const { rateLimit } = require('express-rate-limit');
 const { createClient } = require('@supabase/supabase-js');
 const createAuth = require('./auth');
+const registerNotificationRoutes = require('./notificationRoutes');
 const registerDeletionRoutes = require('./deletionRoutes');
+const registerProductDeletionRoutes = require('./productDeletionRoutes');
 const createBackupService = require('./backupService');
+const registerEmailChangeRoutes = require('./emailChangeRoutes');
+
+
 const {
     sendCustomerQuoteReceivedEmail,
     sendAdminNewQuoteEmail,
@@ -17,75 +24,149 @@ const {
 } = require('./emailService');
 
 const app = express();
-app.set('trust proxy', 1); // Render sits behind a proxy - needed for correct client IPs
+app.set('trust proxy', 1);
 
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean);
 
-// SECURITY MIDDLEWARE
+app.use(helmet());
 
-app.use(helmet()); // standard security headers
-
-// Browsers may only call the API from origins listed in ALLOWED_ORIGINS (comma separated).
-
-// The website calls the API server-to-server and the Android app sends no Origin header, so non are affected.
-
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 app.use(cors({
-    origin: (origin, cb) => cb(null, !origin || allowedOrigins.includes(origin)),
+    origin: (origin, callback) =>
+        callback(null, !origin || allowedOrigins.includes(origin)),
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Only the branch-image upload needs a large body; everything else is capped at 1 MB.
 app.use('/api/admin/import', express.json({ limit: '50mb' }));
 app.use(express.json({ limit: '1mb' }));
 
-// Rate limits (brute force / spam protection)
-const limitMessage = { error: 'Too many requests. Please try again later.' };
-const emailKey = (req) => 'e:' + String((req.body && req.body.email) || 'none').trim().toLowerCase();
-// Failed logins only, per e-mail address (the website's server shares one IP, so IP-keying would
-// throttle every customer together).
-const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, limit: 10, skipSuccessfulRequests: true,
-    keyGenerator: emailKey, standardHeaders: 'draft-7', legacyHeaders: false, message: limitMessage,
-    handler: (req, res, next, options) => { auth.audit('login_rate_limited', req); res.status(429).json(options.message); }
-});
-const registerLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 30, standardHeaders: 'draft-7', legacyHeaders: false, message: limitMessage });
-const quoteLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 60, standardHeaders: 'draft-7', legacyHeaders: false, message: limitMessage });
-
-
-// SUPABASE + AUTH
-
 const clientOptions = {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+    auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+    }
 };
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY, clientOptions);
+
+if (
+    !process.env.SUPABASE_URL ||
+    !process.env.SUPABASE_SECRET_KEY ||
+    !process.env.SUPABASE_PUBLISHABLE_KEY
+) {
+    throw new Error(
+        'SUPABASE_URL, SUPABASE_SECRET_KEY and SUPABASE_PUBLISHABLE_KEY must be configured.'
+    );
+}
+
+// Privileged server-side client
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SECRET_KEY,
+    clientOptions
+);
+
 const auth = createAuth(supabase);
-const { requireAuth, optionalAuth, requireRole, isAdmin, isManager, isStaff, branchOf } = auth;
 
-function createAuthClient() {
-    return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY, clientOptions);
-}
+const {
+    requireAuth,
+    optionalAuth,
+    requireRole,
+    isAdmin,
+    isManager,
+    isStaff,
+    branchOf
+} = auth;
 
+// Customer authentication client
+const createAuthClient = () =>
+    createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_PUBLISHABLE_KEY,
+        clientOptions
+    );
 
-// HELPERS
+const ROLES = [
+    'Admin',
+    'Manager (Soweto)',
+    'Manager (Roodepoort)',
+    'Manager (Randfontein)',
+    'Customer'
+];
 
-const ROLES = ['Admin', 'Manager (Soweto)', 'Manager (Roodepoort)', 'Manager (Randfontein)', 'Customer'];
-const QUOTE_STATUSES = ['Pending', 'In Progress', 'Completed', 'Cancelled'];
+const BRANCHES = ['Soweto', 'Roodepoort', 'Randfontein'];
+
+const QUOTE_STATUSES = [
+    'Pending',
+    'In Progress',
+    'Completed',
+    'Cancelled'
+];
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const escapeLike = (v) => v.replace(/[\\%_]/g, '\\$&');
-const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : v == null ? null : String(v).slice(0, max));
-const has = (obj, k) => Object.prototype.hasOwnProperty.call(obj, k);
 
-// Log the real database error, send the client a generic message (no table/column names leaked)
+const has = (object, key) =>
+    Object.prototype.hasOwnProperty.call(object || {}, key);
+
+const str = (value, max) =>
+    typeof value === 'string'
+        ? value.trim().slice(0, max)
+        : value == null
+            ? null
+            : String(value).trim().slice(0, max);
+
+const escapeLike = value =>
+    String(value).replace(/[\\%_]/g, '\\$&');
+
 function dbError(res, error) {
-    console.error('Database error:', error.message);
-    return res.status(500).json({ error: 'Something went wrong. Please try again.' });
+    console.error('Database error:', error?.message || error);
+
+    return res.status(500).json({
+        error: 'Something went wrong. Please try again.'
+    });
 }
 
-// Helper: parse a JSON string into an array (for products' gallery/features/finishes columns)
+function notFound(res) {
+    return res.status(404).json({ error: 'Record not found.' });
+}
+
+function validBranch(value) {
+    return typeof value === 'string' &&
+        BRANCHES.some(branch =>
+            branch.toLowerCase() === value.trim().toLowerCase()
+        );
+}
+
+function canonicalBranch(value) {
+    return BRANCHES.find(branch =>
+        branch.toLowerCase() === String(value || '').trim().toLowerCase()
+    ) || null;
+}
+
+function managerBranch(user) {
+    return canonicalBranch(branchOf(user));
+}
+
+function managerOwnsRecord(user, record) {
+    const branch = managerBranch(user);
+
+    return Boolean(
+        branch &&
+        record &&
+        String(record.branch || '').toLowerCase() === branch.toLowerCase() &&
+        record.created_by === user.id
+    );
+}
+
 function safeParse(value) {
     if (Array.isArray(value)) return value;
-    if (typeof value !== 'string' || !value.trim()) return [];
+
+    if (typeof value !== 'string' || !value.trim()) {
+        return [];
+    }
+
     try {
         const parsed = JSON.parse(value);
         return Array.isArray(parsed) ? parsed : [];
@@ -94,399 +175,1446 @@ function safeParse(value) {
     }
 }
 
-const cleanProduct = (p) => ({ ...p, gallery: safeParse(p.gallery), features: safeParse(p.features), finishes: safeParse(p.finishes) });
-
-// Registers GET (public) + POST/PUT/DELETE (role protected) for a simple table
-function registerCrud({ path, table, order, ascending = true, writeRoles, label, getOne = false }) {
-    app.get(`/api/${path}`, async (req, res) => {
-        const { data, error } = await supabase.from(table).select('*').order(order, { ascending });
-        if (error) return dbError(res, error);
-        res.json(data);
-    });
-    if (getOne) {
-        app.get(`/api/${path}/:id`, async (req, res) => {
-            const { data, error } = await supabase.from(table).select('*').eq('id', req.params.id).single();
-            if (error) return dbError(res, error);
-            res.json(data);
-        });
-    }
-    app.post(`/api/${path}`, requireRole(...writeRoles), async (req, res) => {
-        const { data, error } = await supabase.from(table).insert([req.body]).select();
-        if (error) return dbError(res, error);
-        res.status(201).json(data);
-    });
-    app.put(`/api/${path}/:id`, requireRole(...writeRoles), async (req, res) => {
-        const { data, error } = await supabase.from(table).update(req.body).eq('id', req.params.id).select();
-        if (error) return dbError(res, error);
-        res.json(data);
-    });
-    app.delete(`/api/${path}/:id`, requireRole(...writeRoles), async (req, res) => {
-        const { data, error } = await supabase.from(table).delete().eq('id', req.params.id).select();
-        if (error) return dbError(res, error);
-        res.json({ message: `${label} deleted`, data });
-    });
+function cleanProduct(product) {
+    return {
+        ...product,
+        gallery: safeParse(product.gallery),
+        features: safeParse(product.features),
+        finishes: safeParse(product.finishes)
+    };
 }
 
+function canManageOwnedRecord(record, user) {
+    if (isAdmin(user)) return true;
+    if (!isManager(user)) return false;
 
-// HEALTH CHECK (public, no data) - also handy for uptime pingers that keep Render awake
+    const userBranch = String(branchOf(user) || '').trim().toLowerCase();
+    const recordBranch = String(record.branch || '').trim().toLowerCase();
 
-app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
+    return Boolean(
+        userBranch &&
+        recordBranch &&
+        userBranch === recordBranch &&
+        record.created_by === user.id
+    );
+}
 
+function cleanProductPayload(body, includeId = false) {
+    const result = {};
 
-// LOGIN / REGISTER (public)
-
-app.post('/api/auth/login', loginLimiter, async (req, res) => {
-    const { email, password } = req.body || {};
-    if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
-        return res.status(400).json({ error: 'Email and password are required.' });
+    if (includeId && has(body, 'id')) {
+        result.id = str(body.id, 120);
     }
-    try {
-        const { data: authData, error: authError } = await createAuthClient().auth.signInWithPassword({ email, password });
-        if (authError || !authData.user) {
-            auth.audit('login_failed', req, { email: email.trim().toLowerCase() });
-            return res.status(401).json({ error: 'Invalid email or password.' });
-        }
 
-        const { data: profile, error: profileError } = await supabase
-            .from('app_users')
-            .select('*')
-            .eq('id', authData.user.id)
-            .single();
+    const fields = {
+        category: 100,
+        title: 180,
+        tagline: 250,
+        description: 5000,
+        image: 2000,
+        lead_time: 120,
+        tag: 80,
+        price: 80
+    };
 
-        if (profileError || !profile) {
-            return res.status(404).json({ error: 'User profile not found.' });
+    for (const [field, max] of Object.entries(fields)) {
+        if (has(body, field)) {
+            result[field] = str(body[field], max);
         }
-        if (!profile.active) {
-            return res.status(403).json({ error: 'This account is currently inactive.' });
-        }
-
-        // "token" is what the website and the Android app send as "Authorization: Bearer <token>"
-        res.json({ user: profile, token: auth.signToken(profile) });
-    } catch (ex) {
-        console.error('Login error:', ex.message);
-        res.status(500).json({ error: 'Login failed. Please try again.' });
     }
+
+    for (const field of ['gallery', 'features', 'finishes']) {
+        if (has(body, field)) {
+            const values = safeParse(body[field]);
+
+            if (values.length > 100) {
+                throw new Error(`${field} contains too many items.`);
+            }
+
+            result[field] = JSON.stringify(
+                values
+                    .filter(value => typeof value === 'string')
+                    .map(value => value.trim().slice(0, 1000))
+            );
+        }
+    }
+
+    if (has(body, 'is_from_price')) {
+        if (typeof body.is_from_price !== 'boolean') {
+            throw new Error('is_from_price must be a boolean.');
+        }
+
+        result.is_from_price = body.is_from_price;
+    }
+
+    return result;
+}
+
+function cleanServicePayload(body) {
+    const result = {};
+
+    for (const field of ['name', 'description', 'image']) {
+        if (has(body, field)) {
+            result[field] = str(
+                body[field],
+                field === 'description' ? 1000 : field === 'image' ? 2000 : 120
+            );
+        }
+    }
+
+    if (has(body, 'is_active')) {
+        if (typeof body.is_active !== 'boolean') {
+            throw new Error('is_active must be a boolean.');
+        }
+
+        result.is_active = body.is_active;
+    }
+
+    return result;
+}
+
+function cleanBranchPayload(body, admin) {
+    const result = {};
+
+    const fields = {
+        name: 100,
+        region: 120,
+        phone: 40,
+        hours: 250,
+        notes: 2000,
+        image: 2000,
+        address: 500
+    };
+
+    for (const [field, max] of Object.entries(fields)) {
+        if (has(body, field)) {
+            result[field] = str(body[field], max);
+        }
+    }
+
+    if (!admin && has(result, 'name')) {
+        throw new Error('Managers cannot rename branches.');
+    }
+
+    return result;
+}
+
+function cleanQuoteUpdate(body) {
+    const update = {};
+
+    if (has(body, 'status')) {
+        if (!QUOTE_STATUSES.includes(body.status)) {
+            throw new Error('Invalid quote status.');
+        }
+
+        update.status = body.status;
+    }
+
+    if (has(body, 'value')) {
+        update.value = str(body.value, 50);
+    }
+
+    return update;
+}
+
+function asyncRoute(handler) {
+    return (req, res, next) =>
+        Promise.resolve(handler(req, res, next)).catch(next);
+}
+
+const limitMessage = {
+    error: 'Too many requests. Please try again later.'
+};
+
+const emailKey = req =>
+    'e:' + String(req.body?.email || 'none').trim().toLowerCase();
+
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    skipSuccessfulRequests: true,
+    keyGenerator: emailKey,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: limitMessage
 });
 
-app.post('/api/auth/register', registerLimiter, async (req, res) => {
-    const { fullName, email, password, phone } = req.body || {};
-    if (typeof fullName !== 'string' || !fullName.trim() || typeof email !== 'string' || !EMAIL_RE.test(email.trim()) ||
-        typeof password !== 'string' || password.length < 8) {
-        return res.status(400).json({ error: 'A name, a valid email and a password of at least 8 characters are required.' });
+const registerLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: 30,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: limitMessage
+});
+
+const quoteLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: 60,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: limitMessage
+});
+
+
+// HEALTH
+
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        time: new Date().toISOString()
+    });
+});
+
+
+// AUTHENTICATION
+
+app.post('/api/auth/login', loginLimiter, asyncRoute(async (req, res) => {
+    const { email, password } = req.body || {};
+
+    if (
+        typeof email !== 'string' ||
+        typeof password !== 'string' ||
+        !email.trim() ||
+        !password
+    ) {
+        return res.status(400).json({
+            error: 'Email and password are required.'
+        });
     }
-    try {
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-            email: email.trim(),
-            password: password,
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const { data: authData, error: authError } =
+        await createAuthClient().auth.signInWithPassword({
+            email: normalizedEmail,
+            password
+        });
+
+    if (authError || !authData?.user) {
+        auth.audit('login_failed', req, {
+            email: normalizedEmail
+        });
+
+        return res.status(401).json({
+            error: 'Invalid email or password.'
+        });
+    }
+
+    const { data: profile, error: profileError } = await supabase
+        .from('app_users')
+        .select('*')
+        .eq('id', authData.user.id)
+        .maybeSingle();
+
+    if (profileError) {
+        console.error(
+            'Login profile lookup failed:',
+            profileError.message
+        );
+
+        return res.status(503).json({
+            error: 'Your account could not be verified. Please try again later.'
+        });
+    }
+
+    if (!profile) {
+        return res.status(404).json({
+            error: 'Your account profile could not be found. Please contact support.'
+        });
+    }
+
+    if (!profile.active) {
+        return res.status(403).json({
+            error: 'This account is currently inactive.'
+        });
+    }
+
+    return res.json({
+        user: profile,
+        token: auth.signToken(profile)
+    });
+}));
+
+app.post('/api/auth/register', registerLimiter, asyncRoute(async (req, res) => {
+    const { fullName, email, password, phone } = req.body || {};
+
+    if (
+        typeof fullName !== 'string' ||
+        !fullName.trim() ||
+        typeof email !== 'string' ||
+        !EMAIL_RE.test(email.trim()) ||
+        typeof password !== 'string' ||
+        password.length < 8
+    ) {
+        return res.status(400).json({
+            error: 'A name, valid email and password of at least 8 characters are required.'
+        });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const { data: authData, error: authError } =
+        await supabase.auth.admin.createUser({
+            email: normalizedEmail,
+            password,
             email_confirm: true
         });
 
-        if (authError || !authData.user) {
-            return res.status(400).json({ error: authError?.message || 'Registration failed.' });
+    if (authError || !authData?.user) {
+        console.error(
+            'Registration Auth creation failed:',
+            authError?.message || 'No user was returned.'
+        );
+
+        return res.status(400).json({
+            error: authError?.message || 'Registration failed.'
+        });
+    }
+
+    const newUser = {
+        id: authData.user.id,
+        full_name: str(fullName, 120),
+        email: normalizedEmail,
+        phone: str(phone || '', 30),
+        role: 'Customer',
+        branch: null,
+        active: true
+    };
+
+    const { error: profileError } = await supabase
+        .from('app_users')
+        .insert([newUser]);
+
+    if (profileError) {
+        console.error(
+            'Registration profile creation failed:',
+            profileError.message
+        );
+
+        try {
+            const { error: rollbackError } =
+                await supabase.auth.admin.deleteUser(authData.user.id);
+
+            if (rollbackError) {
+                console.error(
+                    'CRITICAL: Registration rollback failed. Auth user:',
+                    authData.user.id,
+                    rollbackError.message
+                );
+            }
+        } catch (rollbackError) {
+            console.error(
+                'CRITICAL: Registration rollback threw an error. Auth user:',
+                authData.user.id,
+                rollbackError?.message || rollbackError
+            );
         }
 
-        // Public registration can ONLY create a Customer - role/branch are never taken from the request
-        const newUser = {
-            id: authData.user.id,
-            full_name: str(fullName, 120),
-            email: email.trim(),
-            phone: str(phone || '', 30) || '',
-            role: 'Customer',
-            branch: null,
-            active: true
-        };
-
-        const { error: profileError } = await supabase.from('app_users').insert([newUser]);
-        if (profileError) return dbError(res, profileError);
-
-        res.status(201).json({ message: 'Registration successful.' });
-        sendWelcomeEmail(newUser).catch(err => console.error('Welcome email error:', err));
-        sendAdminNewRegistrationEmail(supabase, newUser).catch(err => console.error('Admin registration email error:', err));
-    } catch (ex) {
-        console.error('Register error:', ex.message);
-        res.status(500).json({ error: 'Registration failed. Please try again.' });
+        return res.status(500).json({
+            error: 'Registration could not be completed. Please try again.'
+        });
     }
-});
 
+    res.status(201).json({
+        message: 'Registration successful.'
+    });
+
+    sendWelcomeEmail(newUser)
+        .catch(error =>
+            console.error('Welcome email error:', error)
+        );
+
+    sendAdminNewRegistrationEmail(supabase, newUser)
+        .catch(error =>
+            console.error('Admin registration email error:', error)
+        );
+}));
 
 // APP USERS
-//   Admin  : list everyone, edit any field, delete (not themselves)
-//   Others : see and edit only their OWN row, and only name / phone / recovery setting
 
-const SELF_FIELDS = ['full_name', 'phone', 'keep_data_on_delete'];
-const ADMIN_ONLY_FIELDS = ['email', 'role', 'branch', 'active'];
+const SELF_FIELDS = [
+    'full_name',
+    'phone',
+    'keep_data_on_delete'
+];
 
-app.get('/api/app-users', requireAuth, async (req, res) => {
-    let query = supabase.from('app_users').select('*').order('full_name');
+const ADMIN_FIELDS = [
+    'email',
+    'role',
+    'branch',
+    'active'
+];
+
+app.get('/api/app-users', requireAuth, asyncRoute(async (req, res) => {
+    let query = supabase
+        .from('app_users')
+        .select('*')
+        .order('full_name');
+
     if (isAdmin(req.user)) {
         if (typeof req.query.email === 'string' && req.query.email.trim()) {
-            query = query.ilike('email', escapeLike(req.query.email.trim()));
+            query = query.ilike(
+                'email',
+                escapeLike(req.query.email.trim())
+            );
         }
     } else {
-        query = query.eq('id', req.user.id); // ?email= is ignored for non-admins
+        query = query.eq('id', req.user.id);
     }
-    const { data, error } = await query;
-    if (error) return dbError(res, error);
-    res.json(data);
-});
 
-app.put('/api/app-users/:id', requireAuth, async (req, res) => {
+    const { data, error } = await query;
+
+    if (error) return dbError(res, error);
+
+    res.json(data || []);
+}));
+
+
+app.put('/api/app-users/:id', requireAuth, asyncRoute(async (req, res) => {
     const body = req.body || {};
     const admin = isAdmin(req.user);
-    const isSelf = req.params.id === req.user.id;
+    const self = req.params.id === req.user.id;
 
-    if (!admin && !isSelf) {
-        auth.audit('forbidden', req, { reason: 'edit_other_user' });
-        return res.status(403).json({ error: 'You can only edit your own account.' });
+    if (!admin && !self) {
+        auth.audit('forbidden', req, {
+            reason: 'edit_other_user'
+        });
+
+        return res.status(403).json({
+            error: 'You can only edit your own account.'
+        });
     }
-    if (!admin && ADMIN_ONLY_FIELDS.some(k => has(body, k))) {
-        auth.audit('privilege_escalation_attempt', req, { fields: ADMIN_ONLY_FIELDS.filter(k => has(body, k)).join(',') });
-        return res.status(403).json({ error: 'Only an administrator can change role, branch, email or status.' });
+
+    // Email changes must use the separate approval workflow.
+    if (has(body, 'email')) {
+        auth.audit('direct_email_change_blocked', req, {
+            target_user: req.params.id
+        });
+
+        return res.status(400).json({
+            error: 'Email addresses must be changed through the email approval request process.'
+        });
+    }
+
+    // Non-admin users cannot change administrative fields.
+    if (!admin && ADMIN_FIELDS.some(field => has(body, field))) {
+        auth.audit('privilege_escalation_attempt', req, {
+            fields: ADMIN_FIELDS
+                .filter(field => has(body, field))
+                .join(',')
+        });
+
+        return res.status(403).json({
+            error: 'Only an administrator can change role, branch, email or status.'
+        });
     }
 
     const update = {};
-    if (has(body, 'full_name')) update.full_name = str(body.full_name, 120);
-    if (has(body, 'phone')) update.phone = str(body.phone, 30) || '';
-    if (has(body, 'keep_data_on_delete')) update.keep_data_on_delete = body.keep_data_on_delete === true;
 
-    if (admin) {
-        if (has(body, 'email')) {
-            if (typeof body.email !== 'string' || !EMAIL_RE.test(body.email.trim())) return res.status(400).json({ error: 'Invalid email.' });
-            update.email = body.email.trim();
+    if (has(body, 'full_name')) {
+        if (
+            typeof body.full_name !== 'string' ||
+            !body.full_name.trim()
+        ) {
+            return res.status(400).json({
+                error: 'A valid name is required.'
+            });
         }
-        if (has(body, 'role')) {
-            if (!ROLES.includes(body.role)) return res.status(400).json({ error: 'Invalid role.' });
-            update.role = body.role;
+
+        update.full_name = str(body.full_name, 120);
+    }
+
+    if (has(body, 'phone')) {
+        update.phone = str(body.phone, 30) || '';
+    }
+
+    if (has(body, 'keep_data_on_delete')) {
+        if (typeof body.keep_data_on_delete !== 'boolean') {
+            return res.status(400).json({
+                error: 'Invalid account recovery preference.'
+            });
         }
-        if (has(body, 'branch')) update.branch = body.branch ? str(body.branch, 60) : null;
-        if (has(body, 'active')) update.active = body.active === true;
-        // An admin cannot lock themselves out
-        if (isSelf && ((update.role && update.role !== 'Admin') || update.active === false)) {
-            return res.status(400).json({ error: 'You cannot demote or deactivate your own account.' });
+
+        update.keep_data_on_delete = body.keep_data_on_delete;
+    }
+
+    // Administrators can change account roles.
+    if (admin && has(body, 'role')) {
+        if (!ROLES.includes(body.role)) {
+            return res.status(400).json({
+                error: 'Invalid role.'
+            });
+        }
+
+        update.role = body.role;
+
+        if (body.role.startsWith('Manager')) {
+            const roleBranch = body.role.match(/^Manager \((.+)\)$/)?.[1];
+
+            if (!validBranch(roleBranch)) {
+                return res.status(400).json({
+                    error: 'Invalid manager branch.'
+                });
+            }
+
+            update.branch = canonicalBranch(roleBranch);
+        } else if (
+            body.role === 'Customer' ||
+            body.role === 'Admin'
+        ) {
+            update.branch = null;
         }
     }
 
-    if (Object.keys(update).length === 0) return res.status(400).json({ error: 'Nothing to update.' });
+    // Branch assignments must match the manager role.
+    if (admin && has(body, 'branch') && !has(body, 'role')) {
+        const requestedBranch = body.branch
+            ? canonicalBranch(body.branch)
+            : null;
 
-    const { data, error } = await supabase.from('app_users').update(update).eq('id', req.params.id).select();
-    if (error) return dbError(res, error);
-    res.json(data);
+        if (body.branch && !requestedBranch) {
+            return res.status(400).json({
+                error: 'Invalid branch.'
+            });
+        }
+
+        const effectiveRole = update.role || req.user.role;
+
+        if (effectiveRole.startsWith('Manager')) {
+            const expected = effectiveRole.match(/^Manager \((.+)\)$/)?.[1];
+
+            if (requestedBranch !== expected) {
+                return res.status(400).json({
+                    error: 'The manager branch must match the assigned manager role.'
+                });
+            }
+        } else if (requestedBranch) {
+            return res.status(400).json({
+                error: 'Only manager accounts can be assigned a branch.'
+            });
+        }
+
+        update.branch = requestedBranch;
+    }
+
+    // Administrators can activate or deactivate accounts.
+    if (admin && has(body, 'active')) {
+        if (typeof body.active !== 'boolean') {
+            return res.status(400).json({
+                error: 'Invalid account status.'
+            });
+        }
+
+        update.active = body.active;
+    }
+
+    // Prevent administrators from demoting or deactivating themselves.
+    if (
+        self &&
+        admin &&
+        (
+            (update.role && update.role !== 'Admin') ||
+            update.active === false
+        )
+    ) {
+        return res.status(400).json({
+            error: 'You cannot demote or deactivate your own account.'
+        });
+    }
+
+    if (Object.keys(update).length === 0) {
+        return res.status(400).json({
+            error: 'Nothing to update.'
+        });
+    }
+
+    const { data, error } = await supabase
+        .from('app_users')
+        .update(update)
+        .eq('id', req.params.id)
+        .select();
+
+    if (error) {
+        return dbError(res, error);
+    }
+
+    if (!data?.length) {
+        return notFound(res);
+    }
+
+    return res.json(data);
+}));
+
+
+// Direct deletion is intentionally disabled.
+// The account-deletion workflow handles archive, approval and Auth deletion.
+app.delete('/api/app-users/:id', requireRole('Admin'), (req, res) => {
+    res.status(409).json({
+        error: 'Use the account deletion request workflow to remove an account.'
+    });
 });
 
-app.delete('/api/app-users/:id', requireRole('Admin'), async (req, res) => {
-    if (req.params.id === req.user.id) return res.status(400).json({ error: 'You cannot delete your own account.' });
-    const { data, error } = await supabase.from('app_users').delete().eq('id', req.params.id).select();
-    if (error) return dbError(res, error);
-    const { error: authError } = await supabase.auth.admin.deleteUser(req.params.id);
-    if (authError) console.error('Auth user delete error:', authError.message);
-    res.json({ message: 'User deleted', data });
-});
 
-// CONTACTS: active branch managers are public; admins are only shown to signed-in staff
-app.get('/api/contacts', optionalAuth, async (req, res) => {
+// CONTACTS
+
+app.get('/api/contacts', optionalAuth, asyncRoute(async (req, res) => {
     const { data, error } = await supabase
         .from('app_users')
         .select('id, full_name, email, phone, role, branch, active')
         .eq('active', true)
         .order('full_name');
+
     if (error) return dbError(res, error);
 
-    const viewerIsStaff = isStaff(req.user); // decided by the token, not by a ?viewer= value
-    const contacts = data.filter(u =>
-        String(u.role).startsWith('Manager') || (viewerIsStaff && u.role === 'Admin'));
-    res.json(contacts);
-});
+    const viewerIsStaff = isStaff(req.user);
+
+    res.json((data || []).filter(user =>
+        String(user.role).startsWith('Manager') ||
+        (viewerIsStaff && user.role === 'Admin')
+    ));
+}));
 
 
-// PRODUCTS  (read: public | write: Admin + Managers)
+// PRODUCTS
 
 app.get('/api/products', async (req, res) => {
-    const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+
     if (error) return dbError(res, error);
-    res.json((data || []).map(cleanProduct));
+
+    return res.json((data || []).map(cleanProduct));
 });
 
 app.get('/api/products/:id', async (req, res) => {
-    const { data, error } = await supabase.from('products').select('*').eq('id', req.params.id).single();
+    const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', req.params.id)
+        .single();
+
     if (error) return dbError(res, error);
-    res.json(cleanProduct(data));
+
+    return res.json(cleanProduct(data));
 });
 
-app.post('/api/products', requireRole('Admin', 'Manager'), async (req, res) => {
-    const { data, error } = await supabase.from('products').insert([req.body]).select();
-    if (error) return dbError(res, error);
-    res.status(201).json(data);
-});
+app.post('/api/products', requireRole('Admin', 'Manager'), asyncRoute(async (req, res) => {
+    let payload;
 
-app.put('/api/products/:id', requireRole('Admin', 'Manager'), async (req, res) => {
-    const { data, error } = await supabase.from('products').update(req.body).eq('id', req.params.id).select();
-    if (error) return dbError(res, error);
-    res.json(data);
-});
-
-app.delete('/api/products/:id', requireRole('Admin', 'Manager'), async (req, res) => {
-    const { data, error } = await supabase.from('products').delete().eq('id', req.params.id).select();
-    if (error) return dbError(res, error);
-    res.json({ message: 'Product deleted', data });
-});
-
-
-// BRANCHES (read: public | write: Admin only)
-
-registerCrud({ path: 'branches', table: 'branches', order: 'name', writeRoles: ['Admin'], label: 'Branch', getOne: true });
-
-app.put('/api/branches/:id/image', requireRole('Admin'), async (req, res) => {
     try {
-        const { data, contentType } = req.body || {};
-        if (!data) return res.status(400).json({ error: 'Image data is required' });
-        const buffer = Buffer.from(data, 'base64');
-        if (buffer.length === 0 || buffer.length > 8 * 1024 * 1024) return res.status(400).json({ error: 'Image must be under 8 MB' });
-        const type = contentType === 'image/png' ? 'image/png' : 'image/jpeg';
-        const ext = type === 'image/png' ? 'png' : 'jpg';
-        const path = `branches/${String(req.params.id).replace(/[^\w-]/g, '')}-${Date.now()}.${ext}`;
-        const up = await supabase.storage.from('woodlands-assets').upload(path, buffer, { contentType: type, upsert: true });
-        if (up.error) return dbError(res, up.error);
-        const { data: pub } = supabase.storage.from('woodlands-assets').getPublicUrl(path);
-        const { error } = await supabase.from('branches').update({ image: pub.publicUrl }).eq('id', req.params.id);
+        payload = cleanProductPayload(req.body || {});
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+
+    // Products belong to the shared catalogue. They are not assigned to branches or manager users.
+    delete payload.branch;
+    delete payload.created_by;
+    delete payload.id;
+    delete payload.created_at;
+
+    const { data, error } = await supabase
+        .from('products')
+        .insert([payload])
+        .select();
+
+    if (error) return dbError(res, error);
+
+    return res.status(201).json(data.map(cleanProduct));
+}));
+
+app.put('/api/products/:id', requireRole('Admin', 'Manager'), asyncRoute(async (req, res) => {
+    let update;
+
+    try {
+        update = cleanProductPayload(req.body || {});
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+
+    // Products belong to the shared catalogue.
+    // Never accept branch or individual ownership changes.
+    delete update.id;
+    delete update.created_at;
+    delete update.branch;
+    delete update.created_by;
+
+    if (Object.keys(update).length === 0) {
+        return res.status(400).json({
+            error: 'Nothing to update.'
+        });
+    }
+
+    const { data, error } = await supabase
+        .from('products')
+        .update(update)
+        .eq('id', req.params.id)
+        .select();
+
+    if (error) return dbError(res, error);
+
+    if (!data || data.length === 0) {
+        return res.status(404).json({
+            error: 'Product not found.'
+        });
+    }
+
+    return res.json(data.map(cleanProduct));
+}));
+
+
+
+// BRANCHES
+
+app.get('/api/branches', asyncRoute(async (req, res) => {
+    const { data, error } = await supabase
+        .from('branches')
+        .select('*')
+        .order('name');
+
+    if (error) return dbError(res, error);
+
+    res.json(data || []);
+}));
+
+app.get('/api/branches/:id', asyncRoute(async (req, res) => {
+    const { data, error } = await supabase
+        .from('branches')
+        .select('*')
+        .eq('id', req.params.id)
+        .maybeSingle();
+
+    if (error) return dbError(res, error);
+    if (!data) return notFound(res);
+
+    res.json(data);
+}));
+
+app.post('/api/branches', requireRole('Admin'), asyncRoute(async (req, res) => {
+    let payload;
+
+    try {
+        payload = cleanBranchPayload(req.body || {}, true);
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+
+    if (!payload.name) {
+        return res.status(400).json({ error: 'Branch name is required.' });
+    }
+
+    const { data, error } = await supabase
+        .from('branches')
+        .insert([payload])
+        .select();
+
+    if (error) return dbError(res, error);
+
+    res.status(201).json(data);
+}));
+
+app.put('/api/branches/:id', requireRole('Admin', 'Manager'), asyncRoute(async (req, res) => {
+    let payload;
+
+    try {
+        payload = cleanBranchPayload(req.body || {}, isAdmin(req.user));
+    } catch (error) {
+        return res.status(403).json({ error: error.message });
+    }
+
+    if (!Object.keys(payload).length) {
+        return res.status(400).json({ error: 'Nothing to update.' });
+    }
+
+    let query = supabase
+        .from('branches')
+        .update(payload)
+        .eq('id', req.params.id);
+
+    if (isManager(req.user)) {
+        const branch = managerBranch(req.user);
+
+        if (!branch) {
+            return res.status(403).json({ error: 'Your account has no valid branch.' });
+        }
+
+        query = query.ilike('name', escapeLike(branch));
+    }
+
+    const { data, error } = await query.select();
+
+    if (error) return dbError(res, error);
+    if (!data?.length) return notFound(res);
+
+    res.json(data);
+}));
+
+app.delete('/api/branches/:id', requireRole('Admin'), asyncRoute(async (req, res) => {
+    const { data, error } = await supabase
+        .from('branches')
+        .delete()
+        .eq('id', req.params.id)
+        .select();
+
+    if (error) return dbError(res, error);
+    if (!data?.length) return notFound(res);
+
+    res.json({
+        message: 'Branch deleted',
+        data
+    });
+}));
+
+app.put('/api/branches/:id/image', requireRole('Admin', 'Manager'), asyncRoute(async (req, res) => {
+    const { data: imageData, contentType } = req.body || {};
+
+    if (typeof imageData !== 'string' || !imageData.trim()) {
+        return res.status(400).json({ error: 'Image data is required.' });
+    }
+
+    const buffer = Buffer.from(imageData, 'base64');
+
+    if (!buffer.length || buffer.length > 8 * 1024 * 1024) {
+        return res.status(400).json({ error: 'Image must be under 8 MB.' });
+    }
+
+    const allowedTypes = {
+        'image/png': 'png',
+        'image/jpeg': 'jpg',
+        'image/webp': 'webp'
+    };
+
+    const extension = allowedTypes[contentType];
+
+    if (!extension) {
+        return res.status(400).json({ error: 'Unsupported image type.' });
+    }
+
+    const { data: branchRecord, error: branchError } = await supabase
+        .from('branches')
+        .select('id, name')
+        .eq('id', req.params.id)
+        .maybeSingle();
+
+    if (branchError) return dbError(res, branchError);
+    if (!branchRecord) return notFound(res);
+
+    if (
+        isManager(req.user) &&
+        String(branchRecord.name).toLowerCase() !==
+        String(managerBranch(req.user) || '').toLowerCase()
+    ) {
+        return res.status(403).json({
+            error: 'You can only update your own branch image.'
+        });
+    }
+
+    const path = `branches/${String(req.params.id).replace(/[^\w-]/g, '')}-${Date.now()}.${extension}`;
+
+    const upload = await supabase.storage
+        .from('woodlands-assets')
+        .upload(path, buffer, {
+            contentType,
+            upsert: true
+        });
+
+    if (upload.error) return dbError(res, upload.error);
+
+    const { data: publicUrl } = supabase.storage
+        .from('woodlands-assets')
+        .getPublicUrl(path);
+
+    let updateQuery = supabase
+        .from('branches')
+        .update({ image: publicUrl.publicUrl })
+        .eq('id', req.params.id);
+
+    if (isManager(req.user)) {
+        updateQuery = updateQuery.eq('name', managerBranch(req.user));
+    }
+
+    const { data, error } = await updateQuery.select();
+
+    if (error) return dbError(res, error);
+    if (!data?.length) return notFound(res);
+
+    res.json({
+        image: publicUrl.publicUrl,
+        data
+    });
+}));
+
+
+// SERVICES
+
+app.get('/api/services', asyncRoute(async (req, res) => {
+    const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .order('name');
+
+    if (error) return dbError(res, error);
+
+    res.json(data || []);
+}));
+
+app.post('/api/services', requireRole('Admin', 'Manager'), asyncRoute(async (req, res) => {
+    let payload;
+
+    try {
+        payload = cleanServicePayload(req.body || {});
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+
+    if (!payload.name) {
+        return res.status(400).json({ error: 'Service name is required.' });
+    }
+
+    // Ownership is always assigned by the API.
+    payload.created_by = req.user.id;
+
+    if (isManager(req.user)) {
+        const branch = managerBranch(req.user);
+
+        if (!branch) {
+            return res.status(403).json({
+                error: 'Your account has no valid branch.'
+            });
+        }
+
+        // Managers cannot choose another branch.
+        payload.branch = branch;
+    } else if (has(req.body, 'branch')) {
+        const requestedBranch = req.body.branch
+            ? canonicalBranch(req.body.branch)
+            : null;
+
+        if (req.body.branch && !requestedBranch) {
+            return res.status(400).json({ error: 'Invalid branch.' });
+        }
+
+        payload.branch = requestedBranch;
+    }
+
+    const { data, error } = await supabase
+        .from('services')
+        .insert([payload])
+        .select();
+
+    if (error) return dbError(res, error);
+
+    res.status(201).json(data);
+}));
+
+app.put('/api/services/:id', requireRole('Admin', 'Manager'), asyncRoute(async (req, res) => {
+    const { data: existing, error: fetchError } = await supabase
+        .from('services')
+        .select('*')
+        .eq('id', req.params.id)
+        .maybeSingle();
+
+    if (fetchError) return dbError(res, fetchError);
+    if (!existing) return notFound(res);
+
+    if (!canManageOwnedRecord(existing, req.user)) {
+        auth.audit('forbidden', req, {
+            reason: 'service_ownership_violation'
+        });
+
+        return res.status(403).json({
+            error: 'You can only edit services created by you for your own branch.'
+        });
+    }
+
+    let update;
+
+    try {
+        update = cleanServicePayload(req.body || {});
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+
+    if (!Object.keys(update).length) {
+        return res.status(400).json({ error: 'Nothing to update.' });
+    }
+
+    let query = supabase
+        .from('services')
+        .update(update)
+        .eq('id', req.params.id);
+
+    if (isManager(req.user)) {
+        query = query
+            .eq('branch', existing.branch)
+            .eq('created_by', req.user.id);
+    }
+
+    const { data, error } = await query.select();
+
+    if (error) return dbError(res, error);
+    if (!data?.length) {
+        return res.status(409).json({
+            error: 'The service could not be updated. Refresh and try again.'
+        });
+    }
+
+    res.json(data);
+}));
+
+app.delete('/api/services/:id', requireRole('Admin', 'Manager'), asyncRoute(async (req, res) => {
+    const { data: existing, error: fetchError } = await supabase
+        .from('services')
+        .select('*')
+        .eq('id', req.params.id)
+        .maybeSingle();
+
+    if (fetchError) return dbError(res, fetchError);
+    if (!existing) return notFound(res);
+
+    if (!canManageOwnedRecord(existing, req.user)) {
+        auth.audit('forbidden', req, {
+            reason: 'service_delete_ownership_violation'
+        });
+
+        return res.status(403).json({
+            error: 'You can only delete services created by you for your own branch.'
+        });
+    }
+
+    let query = supabase
+        .from('services')
+        .delete()
+        .eq('id', req.params.id);
+
+    if (isManager(req.user)) {
+        query = query
+            .eq('branch', existing.branch)
+            .eq('created_by', req.user.id);
+    }
+
+    const { data, error } = await query.select();
+
+    if (error) return dbError(res, error);
+    if (!data?.length) {
+        return res.status(409).json({
+            error: 'The service could not be deleted. Refresh and try again.'
+        });
+    }
+
+    res.json({
+        message: 'Service deleted',
+        data
+    });
+}));
+
+
+// TESTIMONIALS AND FAQS - ADMIN ONLY
+
+function registerAdminCrud({ path, table, order, ascending = true, fields, label }) {
+    app.get(`/api/${path}`, asyncRoute(async (req, res) => {
+        const { data, error } = await supabase
+            .from(table)
+            .select('*')
+            .order(order, { ascending });
+
         if (error) return dbError(res, error);
-        res.json({ image: pub.publicUrl });
-    } catch (e) {
-        console.error('Branch image error:', e.message);
-        res.status(500).json({ error: 'Image upload failed.' });
+
+        res.json(data || []);
+    }));
+
+    app.post(`/api/${path}`, requireRole('Admin'), asyncRoute(async (req, res) => {
+        const payload = {};
+
+        for (const [field, max] of Object.entries(fields)) {
+            if (has(req.body, field)) {
+                payload[field] = str(req.body[field], max);
+            }
+        }
+
+        const { data, error } = await supabase
+            .from(table)
+            .insert([payload])
+            .select();
+
+        if (error) return dbError(res, error);
+
+        res.status(201).json(data);
+    }));
+
+    app.put(`/api/${path}/:id`, requireRole('Admin'), asyncRoute(async (req, res) => {
+        const payload = {};
+
+        for (const [field, max] of Object.entries(fields)) {
+            if (has(req.body, field)) {
+                payload[field] = str(req.body[field], max);
+            }
+        }
+
+        if (!Object.keys(payload).length) {
+            return res.status(400).json({ error: 'Nothing to update.' });
+        }
+
+        const { data, error } = await supabase
+            .from(table)
+            .update(payload)
+            .eq('id', req.params.id)
+            .select();
+
+        if (error) return dbError(res, error);
+        if (!data?.length) return notFound(res);
+
+        res.json(data);
+    }));
+
+    app.delete(`/api/${path}/:id`, requireRole('Admin'), asyncRoute(async (req, res) => {
+        const { data, error } = await supabase
+            .from(table)
+            .delete()
+            .eq('id', req.params.id)
+            .select();
+
+        if (error) return dbError(res, error);
+        if (!data?.length) return notFound(res);
+
+        res.json({
+            message: `${label} deleted`,
+            data
+        });
+    }));
+}
+
+registerAdminCrud({
+    path: 'testimonials',
+    table: 'testimonials',
+    order: 'created_at',
+    ascending: false,
+    label: 'Testimonial',
+    fields: {
+        name: 120,
+        role: 120,
+        location: 120,
+        rating: 10,
+        review: 5000,
+        project: 200
+    }
+});
+
+registerAdminCrud({
+    path: 'faqs',
+    table: 'faqs',
+    order: 'category',
+    label: 'FAQ',
+    fields: {
+        category: 120,
+        question: 500,
+        answer: 5000
     }
 });
 
 
-// SERVICES (read: public | write: Admin + Managers)
-// TESTIMONIALS, FAQS (read: public | write: Admin only)
+// HOMEPAGE ASSETS
 
-registerCrud({ path: 'services', table: 'services', order: 'name', writeRoles: ['Admin', 'Manager'], label: 'Service' });
-registerCrud({ path: 'testimonials', table: 'testimonials', order: 'created_at', ascending: false, writeRoles: ['Admin'], label: 'Testimonial' });
-registerCrud({ path: 'faqs', table: 'faqs', order: 'category', writeRoles: ['Admin'], label: 'FAQ' });
+app.get('/api/homepage-assets', asyncRoute(async (req, res) => {
+    const { data, error } = await supabase
+        .from('homepage_assets')
+        .select('*')
+        .order('display_order');
 
-// HOMEPAGE ASSETS (read only, public)
-app.get('/api/homepage-assets', async (req, res) => {
-    const { data, error } = await supabase.from('homepage_assets').select('*').order('display_order');
     if (error) return dbError(res, error);
-    res.json(data);
-});
+
+    res.json(data || []);
+}));
 
 
 // QUOTE REQUESTS
-//   POST (create) : public - customers and guests can request a quote
-//   GET           : Admin = all | Manager = own branch only | Customer = own quotes only
-//   PUT (status)  : Admin, or the Manager of that quote's branch
-//   DELETE        : Admin only
 
-app.get('/api/quote-requests', requireAuth, async (req, res) => {
-    let query = supabase.from('quote_requests').select('*').order('created_at', { ascending: false });
-    const u = req.user;
+app.get('/api/quote-requests', requireAuth, asyncRoute(async (req, res) => {
+    let query = supabase
+        .from('quote_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (isAdmin(u)) {
-        if (typeof req.query.email === 'string' && req.query.email.trim()) query = query.ilike('email', escapeLike(req.query.email.trim()));
-        if (typeof req.query.branch === 'string' && req.query.branch.trim()) query = query.eq('branch', req.query.branch.trim());
-    } else if (isManager(u)) {
-        const branch = branchOf(u);
+    if (isAdmin(req.user)) {
+        if (typeof req.query.email === 'string' && req.query.email.trim()) {
+            query = query.ilike('email', escapeLike(req.query.email.trim()));
+        }
+
+        if (typeof req.query.branch === 'string' && req.query.branch.trim()) {
+            query = query.eq('branch', req.query.branch.trim());
+        }
+    } else if (isManager(req.user)) {
+        const branch = managerBranch(req.user);
+
         if (!branch) return res.json([]);
-        query = query.eq('branch', branch); // forced - the ?branch= value cannot widen this
+
+        query = query.eq('branch', branch);
     } else {
-        query = query.ilike('email', escapeLike(u.email)); // forced - customers only ever see their own
+        query = query.ilike('email', escapeLike(req.user.email));
     }
 
     const { data, error } = await query;
+
     if (error) return dbError(res, error);
-    res.json(data);
-});
+
+    res.json(data || []);
+}));
+
 
 app.post('/api/quote-requests', quoteLimiter, optionalAuth, async (req, res) => {
     const b = req.body || {};
-    if (typeof b.email !== 'string' || !EMAIL_RE.test(b.email.trim()) || !b.first_name || !b.quote_code) {
-        return res.status(400).json({ error: 'First name, a valid email and a quote code are required.' });
+    const user = req.user || null;
+
+    // Managers may manage requests for their branch, but cannot create requests.
+    if (user && isManager(user)) {
+        auth.audit('forbidden', req, {
+            reason: 'manager_quote_creation_blocked'
+        });
+
+        return res.status(403).json({
+            error: 'Managers cannot create service requests.'
+        });
     }
-    // Whitelist: status is always "Pending" and nobody can set id / value / created_at
+
+    // Only guests, Customers and Admins may create requests.
+    if (user && !isAdmin(user) && user.role !== 'Customer') {
+        return res.status(403).json({
+            error: 'You do not have permission to create service requests.'
+        });
+    }
+
+    if (
+        typeof b.email !== 'string' ||
+        !EMAIL_RE.test(b.email.trim()) ||
+        typeof b.first_name !== 'string' ||
+        !b.first_name.trim() ||
+        typeof b.quote_code !== 'string' ||
+        !b.quote_code.trim()
+    ) {
+        return res.status(400).json({
+            error: 'First name, a valid email and a quote code are required.'
+        });
+    }
+
+    const submittedEmail = b.email.trim().toLowerCase();
+
+    // A signed-in Customer must submit using their own account email.
+    // Admins may use another email when creating test requests.
+    if (
+        user &&
+        user.role === 'Customer' &&
+        submittedEmail !== String(user.email || '').trim().toLowerCase()
+    ) {
+        return res.status(403).json({
+            error: 'Your request email must match your registered account email.'
+        });
+    }
+
+    // Whitelist accepted fields. Never accept status, id, value,
+    // created_at, branch ownership or created_by from the request body.
     const quoteRow = {
         quote_code: str(b.quote_code, 60),
         first_name: str(b.first_name, 100),
         last_name: str(b.last_name || '', 100),
-        email: b.email.trim().slice(0, 200),
+        email: submittedEmail.slice(0, 200),
         phone: str(b.phone || '', 30),
         branch: str(b.branch || '', 60),
         service: str(b.service || '', 120),
         message: str(b.message || '', 4000),
         status: 'Pending'
     };
-    if (b.product_id !== undefined && b.product_id !== null && b.product_id !== '') quoteRow.product_id = str(b.product_id, 100);
 
-    const { data, error } = await supabase.from('quote_requests').insert([quoteRow]).select();
+    // Authenticated Customers and Admins are linked to their account.
+    // Guests remain unlinked (created_by = NULL).
+    if (user) {
+        quoteRow.created_by = user.id;
+    }
+
+    if (
+        b.product_id !== undefined &&
+        b.product_id !== null &&
+        b.product_id !== ''
+    ) {
+        quoteRow.product_id = str(b.product_id, 100);
+    }
+
+    const { data, error } = await supabase
+        .from('quote_requests')
+        .insert([quoteRow])
+        .select();
+
     if (error) {
         if (error.code === '23505') {
-            const { data: existing } = await supabase.from('quote_requests').select('*')
-                .eq('quote_code', quoteRow.quote_code).eq('email', quoteRow.email);
+            const { data: existing, error: existingError } = await supabase
+                .from('quote_requests')
+                .select('*')
+                .eq('quote_code', quoteRow.quote_code)
+                .eq('email', quoteRow.email);
+
+            if (existingError) return dbError(res, existingError);
+
             return res.status(200).json(existing || []);
         }
+
         return dbError(res, error);
     }
+
     const quote = data && data[0];
+
     if (quote) {
-        sendCustomerQuoteReceivedEmail(quote).catch(err => console.error('Customer quote email error:', err));
-        sendAdminNewQuoteEmail(supabase, quote).catch(err => console.error('Admin quote email error:', err));
-        sendBranchManagerNewQuoteEmail(supabase, quote).catch(err => console.error('Manager quote email error:', err));
+        sendCustomerQuoteReceivedEmail(quote)
+            .catch(err => console.error('Customer quote email error:', err));
+
+        sendAdminNewQuoteEmail(supabase, quote)
+            .catch(err => console.error('Admin quote email error:', err));
+
+        sendBranchManagerNewQuoteEmail(supabase, quote)
+            .catch(err => console.error('Manager quote email error:', err));
     }
-    res.status(201).json(data);
+
+    return res.status(201).json(data);
 });
 
 app.put('/api/quote-requests/:id', requireRole('Admin', 'Manager'), async (req, res) => {
     const { data: before, error: beforeError } = await supabase
-        .from('quote_requests').select('status, branch').eq('id', req.params.id).maybeSingle();
+        .from('quote_requests')
+        .select('status, branch')
+        .eq('id', req.params.id)
+        .maybeSingle();
+
     if (beforeError) return dbError(res, beforeError);
     if (!before) return res.status(404).json({ error: 'Quote request not found.' });
 
-    if (isManager(req.user) && String(before.branch || '').toLowerCase() !== String(branchOf(req.user) || '').toLowerCase()) {
-        auth.audit('forbidden', req, { reason: 'manager_other_branch_quote' });
-        return res.status(403).json({ error: 'You can only update quotes for your own branch.' });
+    const manager = isManager(req.user);
+    const managerBranch = String(branchOf(req.user) || '').trim().toLowerCase();
+    const requestBranch = String(before.branch || '').trim().toLowerCase();
+
+    if (manager && (!managerBranch || requestBranch !== managerBranch)) {
+        auth.audit('forbidden', req, {
+            reason: 'manager_other_branch_quote'
+        });
+
+        return res.status(403).json({
+            error: 'You can only update requests for your own branch.'
+        });
     }
 
     const update = {};
+
     if (has(req.body || {}, 'status')) {
-        if (!QUOTE_STATUSES.includes(req.body.status)) return res.status(400).json({ error: 'Invalid status.' });
+        if (!QUOTE_STATUSES.includes(req.body.status)) {
+            return res.status(400).json({ error: 'Invalid status.' });
+        }
+
         update.status = req.body.status;
     }
-    if (has(req.body || {}, 'value')) update.value = str(req.body.value, 50);
-    if (Object.keys(update).length === 0) return res.status(400).json({ error: 'Nothing to update.' });
 
-    const { data, error } = await supabase.from('quote_requests').update(update).eq('id', req.params.id).select();
-    if (error) return dbError(res, error);
-    const quote = data && data[0];
-    if (quote && update.status && update.status !== before.status) {
-        sendCustomerStatusEmail(quote, before.status, quote.status).catch(err => console.error('Status email error:', err));
+    if (has(req.body || {}, 'value')) {
+        update.value = str(req.body.value, 50);
     }
-    res.json(data);
-});
 
-app.delete('/api/quote-requests/:id', requireRole('Admin'), async (req, res) => {
-    const { data, error } = await supabase.from('quote_requests').delete().eq('id', req.params.id).select();
+    if (Object.keys(update).length === 0) {
+        return res.status(400).json({ error: 'Nothing to update.' });
+    }
+
+    let updateQuery = supabase
+        .from('quote_requests')
+        .update(update)
+        .eq('id', req.params.id);
+
+    if (manager) {
+        updateQuery = updateQuery.eq('branch', before.branch);
+    }
+
+    const { data, error } = await updateQuery.select();
+
     if (error) return dbError(res, error);
-    res.json({ message: 'Quote request deleted', data });
+
+    if (!data || data.length === 0) {
+        return res.status(409).json({
+            error: 'The request could not be updated. It may have changed; refresh and try again.'
+        });
+    }
+
+    const quote = data[0];
+
+    if (update.status && update.status !== before.status) {
+        sendCustomerStatusEmail(quote, before.status, quote.status)
+            .catch(err => console.error('Status email error:', err));
+    }
+
+    return res.json(data);
 });
 
+app.delete('/api/quote-requests/:id', requireRole('Admin'), asyncRoute(async (req, res) => {
+    const { data, error } = await supabase
+        .from('quote_requests')
+        .delete()
+        .eq('id', req.params.id)
+        .select();
 
-// ACCOUNT DELETION + ARCHIVE ROUTES, and the SCHEDULED BACKUP feature
+    if (error) return dbError(res, error);
+    if (!data?.length) return notFound(res);
 
+    res.json({
+        message: 'Quote request deleted',
+        data
+    });
+}));
+
+// EMAIL CHANGE APPROVAL
+registerEmailChangeRoutes(app, supabase, auth);
+
+// NOTIFICATIONS
+const notificationService = registerNotificationRoutes(
+    app,
+    supabase,
+    auth
+);
+
+// DELETION AND BACKUP ROUTES
 registerDeletionRoutes(app, supabase, auth);
+
+registerProductDeletionRoutes(
+    app,
+    supabase,
+    auth,
+    notificationService
+);
+
 const backups = createBackupService(app, supabase, auth);
 
-// Unknown routes + last-resort error handler (no stack traces to the client)
-app.use((req, res) => res.status(404).json({ error: 'Not found.' }));
-app.use((err, req, res, next) => {
-    if (err && err.type === 'entity.too.large') return res.status(413).json({ error: 'Request is too large.' });
-    if (err && err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid JSON.' });
-    console.error('Unhandled error:', err && err.message);
-    res.status(500).json({ error: 'Something went wrong.' });
+
+// ERROR HANDLING
+
+app.use((req, res) => {
+    res.status(404).json({ error: 'Not found.' });
 });
 
-// Start the server
+app.use((error, req, res, next) => {
+    if (error?.type === 'entity.too.large') {
+        return res.status(413).json({ error: 'Request is too large.' });
+    }
+
+    if (error?.type === 'entity.parse.failed') {
+        return res.status(400).json({ error: 'Invalid JSON.' });
+    }
+
+    console.error('Unhandled API error:', error?.message || error);
+
+    res.status(500).json({
+        error: 'Something went wrong.'
+    });
+});
+
+
+// START SERVER
+
 const PORT = process.env.PORT || 5000;
+
 app.listen(PORT, () => {
-    console.log(`Node API running on http://localhost:${PORT}`);
-    backups.start(); // starts the interval-based backup job
+    console.log(`Node API running on port ${PORT}`);
+    backups.start();
 });

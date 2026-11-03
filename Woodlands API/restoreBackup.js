@@ -10,7 +10,17 @@ const { createClient } = require('@supabase/supabase-js');
     const only = args.includes('--table') ? args[args.indexOf('--table') + 1] : null;
     if (!source) { console.error('Usage: node restoreBackup.js <file.json.gz | name-in-bucket> [--table name] [--apply]'); process.exit(1); }
 
-    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY, { auth: { persistSession: false } });
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SECRET_KEY,
+    {
+        auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false
+        }
+    }
+);
 
     let buffer;
     if (fs.existsSync(source)) {
