@@ -91,7 +91,7 @@ private fun LocalDb.remoteIdOf(table: String, id: Long): String? =
 
 private fun isPublicOp(method: String, path: String): Boolean =
     path.startsWith("/api/auth/") ||
-        (method == "POST" && (path == "/api/quote-requests" || path.startsWith("/api/contact")))
+            (method == "POST" && path.startsWith("/api/contact"))
 
 private fun LocalDb.enqueue(method: String, path: String, body: String?, ref: String?, kind: String = OP_HTTP) {
     val owner = if (isPublicOp(method, path)) null else Session(appContext).userId
@@ -155,11 +155,27 @@ internal fun LocalDb.failedOps(): List<PendingOp> {
     return out
 }
 
-internal fun LocalDb.pendingOpCount(): Int =
-    DatabaseUtils.queryNumEntries(readableDatabase, "outbox", "COALESCE(failed,0)=0").toInt()
+internal fun LocalDb.pendingOpCount(): Int {
+    val userId = Session(appContext).userId ?: return 0
 
-internal fun LocalDb.failedOpCount(): Int =
-    DatabaseUtils.queryNumEntries(readableDatabase, "outbox", "failed=1").toInt()
+    return DatabaseUtils.queryNumEntries(
+        readableDatabase,
+        "outbox",
+        "COALESCE(failed,0)=0 AND owner_id=?",
+        arrayOf(userId)
+    ).toInt()
+}
+
+internal fun LocalDb.failedOpCount(): Int {
+    val userId = Session(appContext).userId ?: return 0
+
+    return DatabaseUtils.queryNumEntries(
+        readableDatabase,
+        "outbox",
+        "failed=1 AND owner_id=?",
+        arrayOf(userId)
+    ).toInt()
+}
 
 internal fun LocalDb.markOpFailed(id: Long, error: String) {
     writableDatabase.execSQL("UPDATE outbox SET failed=1, last_error=? WHERE id=?", arrayOf<Any?>(error, id))
@@ -655,7 +671,8 @@ internal fun LocalDb.saveFaq(f: Faq, isNew: Boolean) {
 
 internal fun LocalDb.deleteFaq(id: Int) {
     deleteSynced("faqs", id.toLong(), "/api/faqs")
-}
+}
+
 
 internal fun LocalDb.saveService(id: Long, name: String, description: String, image: String, active: Boolean, isNew: Boolean) {
     val v = ContentValues().apply {

@@ -115,6 +115,43 @@ class LocalDb(context: Context) : SQLiteOpenHelper(
             """.trimIndent()
         )
 
+        // Upgrade existing notification tables without deleting existing data.
+        val notificationColumns = mutableSetOf<String>()
+
+        db.rawQuery("PRAGMA table_info(notifications)", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                notificationColumns += cursor.getString(1)
+            }
+        }
+
+        if ("remote_id" !in notificationColumns) {
+            db.execSQL("ALTER TABLE notifications ADD COLUMN remote_id TEXT")
+        }
+
+        if ("owner_id" !in notificationColumns) {
+            db.execSQL("ALTER TABLE notifications ADD COLUMN owner_id TEXT")
+        }
+
+        if ("title" !in notificationColumns) {
+            db.execSQL("ALTER TABLE notifications ADD COLUMN title TEXT")
+        }
+
+        if ("message" !in notificationColumns) {
+            db.execSQL("ALTER TABLE notifications ADD COLUMN message TEXT")
+        }
+
+        if ("kind" !in notificationColumns) {
+            db.execSQL("ALTER TABLE notifications ADD COLUMN kind TEXT")
+        }
+
+        if ("is_read" !in notificationColumns) {
+            db.execSQL("ALTER TABLE notifications ADD COLUMN is_read INTEGER DEFAULT 0")
+        }
+
+        if ("created_at" !in notificationColumns) {
+            db.execSQL("ALTER TABLE notifications ADD COLUMN created_at INTEGER")
+        }
+
         // Add columns to the existing outbox without deleting queued operations.
         val outboxColumns = mutableSetOf<String>()
 

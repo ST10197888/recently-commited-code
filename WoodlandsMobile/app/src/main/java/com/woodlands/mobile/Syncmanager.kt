@@ -521,6 +521,10 @@ object SyncManager {
         }
 
         if (!outcome.allDone) {
+            Log.e(
+                TAG,
+                "SYNC STOPPED BEFORE DOWNLOADS. Processed: ${outcome.processed}"
+            )
             if (outcome.processed > 0) {
                 publishChange(firstLoad)
             }
@@ -614,18 +618,20 @@ object SyncManager {
             val startingUserId = session.userId
 
             // Account-specific operations must belong to the active account.
-            // Public operations have a null ownerId.
+
             if (
                 op.ownerId != null &&
                 op.ownerId != startingUserId
             ) {
                 Log.w(
                     TAG,
-                    "Paused operation ${op.id}: its owner does not match the signed-in account."
+                    "Paused operation ${op.id}: its owner does not match the signed-in account. Skipping it and continuing sync."
                 )
 
-                return PushOutcome(false, processed)
+                // Keep this operation in the outbox. Do not send it using another account. Continue processing and allow the current account to sync.
+                continue
             }
+
 
             // Do not execute an account-specific operation without an account.
             if (
@@ -981,28 +987,42 @@ object SyncManager {
         )
     }
 
+
     private fun fetchArray(
         path: String
     ): Pair<JSONArray, String>? {
-        val result = ApiClient.get(path)
+        return when (val result = ApiClient.get(path)) {
+            is ApiResult.Success -> {
+                try {
+                    Pair(
+                        JSONArray(result.body),
+                        result.body
+                    )
+                } catch (e: JSONException) {
+                    Log.e(
+                        TAG,
+                        "Invalid JSON returned by $path",
+                        e
+                    )
+                    null
+                }
+            }
 
-        if (result !is ApiResult.Success) {
-            return null
-        }
+            is ApiResult.Failure -> {
+                Log.e(
+                    TAG,
+                    "API request failed: $path | HTTP ${result.code} | ${result.message}"
+                )
+                null
+            }
 
-        return try {
-            Pair(
-                JSONArray(result.body),
-                result.body
-            )
-        } catch (e: JSONException) {
-            Log.w(
-                TAG,
-                "Invalid JSON returned by $path",
-                e
-            )
-
-            null
+            is ApiResult.Offline -> {
+                Log.e(
+                    TAG,
+                    "API request offline: $path"
+                )
+                null
+            }
         }
     }
 
